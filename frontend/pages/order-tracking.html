@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Insured Shipment · TimeCraft</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/styles.css" rel="stylesheet">
+</head>
+<body>
+<div id="tcHeader"></div>
+<main class="container py-5" style="max-width:740px;">
+    <div class="border-bottom pb-3 mb-4">
+        <div class="tc-eyebrow">Armoured Courier Telemetry</div>
+        <h1 class="display-6 tc-serif mb-0">Track Your Timepiece Shipment</h1>
+    </div>
+    <form id="trackForm" class="d-flex gap-2 mb-4">
+        <input type="text" id="trackInput" class="form-control tc-num" required placeholder="Enter TimeCraft Order # (e.g. TC-261123-...) or Courier Tracking #">
+        <button type="submit" class="btn-tc-primary">Track</button>
+    </form>
+    <div id="trackResultHost"></div>
+</main>
+<div id="tcFooter"></div>
+<script src="/js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    await TC.mountChrome();
+    const params = new URLSearchParams(window.location.search);
+    const initial = params.get('order') || params.get('tracking') || '';
+    const input = document.getElementById('trackInput');
+    const host = document.getElementById('trackResultHost');
+
+    async function lookup(code) {
+        if (!code) return;
+        try {
+            const s = await TC.api('/shipments/track/' + encodeURIComponent(code));
+            host.innerHTML = `
+            <div class="tc-panel">
+              <div class="d-flex flex-wrap justify-content-between align-items-center border-bottom pb-3 mb-3">
+                <div>
+                  <div class="tc-eyebrow">${TC.escapeHtml(s.courierName)}</div>
+                  <div class="fs-4 tc-serif tc-num">Tracking # ${TC.escapeHtml(s.trackingNumber)} · Order ${TC.escapeHtml(s.orderNumber)}</div>
+                  <div class="small text-muted">Estimated Delivery: ${TC.escapeHtml(s.estimatedDeliveryDate || 'Scheduled')}</div>
+                </div>
+                <span class="badge bg-dark rounded-0">${s.status}</span>
+              </div>
+              <h2 class="h5 tc-serif mb-2">Tracking Event History</h2>
+              <div class="vstack gap-2">
+                ${(s.events || []).map(ev => `
+                  <div class="d-flex justify-content-between small border-bottom pb-2">
+                    <div><strong>${ev.status}</strong> (${TC.escapeHtml(ev.location || '')}) — ${TC.escapeHtml(ev.description || '')}</div>
+                    <span class="text-muted tc-num">${new Date(ev.eventTime).toLocaleString()}</span>
+                  </div>`).join('')}
+              </div>
+            </div>`;
+        } catch (err) {
+            host.innerHTML = `<div class="tc-panel text-muted small">${TC.escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    document.getElementById('trackForm').addEventListener('submit', e => {
+        e.preventDefault();
+        lookup(input.value.trim());
+    });
+    if (initial) {
+        input.value = initial;
+        lookup(initial);
+    }
+});
+</script>
+</body>
+</html>

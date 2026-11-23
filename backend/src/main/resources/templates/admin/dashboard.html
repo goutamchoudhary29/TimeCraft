@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Executive Dashboard')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('dashboard')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Executive Dashboard')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+
+            <!-- Primary KPIs -->
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-xl-3">
+                    <div class="tc-card h-100">
+                        <div class="tc-kpi-label">Total Revenue</div>
+                        <div class="tc-kpi-value num">₹<span th:text="${#numbers.formatDecimal(overview.totalRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
+                        <div class="small text-muted mt-1">This month: ₹<span th:text="${#numbers.formatDecimal(overview.monthRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="tc-card h-100">
+                        <div class="tc-kpi-label">Total Orders</div>
+                        <div class="tc-kpi-value num" th:text="${overview.totalOrders}">0</div>
+                        <div class="small text-muted mt-1">
+                            Pending: <span th:text="${overview.pendingOrders}">0</span> · Completed: <span th:text="${overview.completedOrders}">0</span> · Cancelled: <span th:text="${overview.cancelledOrders}">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="tc-card h-100">
+                        <div class="tc-kpi-label">Watch Catalog</div>
+                        <div class="tc-kpi-value num" th:text="${overview.totalProducts}">0</div>
+                        <div class="small text-muted mt-1">
+                            Active: <span th:text="${overview.activeProducts}">0</span> · Low stock: <span class="text-danger fw-semibold" th:text="${overview.lowStockCount}">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="tc-card h-100">
+                        <div class="tc-kpi-label">Customers &amp; Queue</div>
+                        <div class="tc-kpi-value num" th:text="${overview.totalCustomers}">0</div>
+                        <div class="small text-muted mt-1">
+                            Reviews: <span th:text="${overview.pendingReviews}">0</span> · Returns: <span th:text="${overview.pendingReturns}">0</span> · Tickets: <span th:text="${overview.openTickets}">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Earnings & Selling Breakdown: Day / Week / Month / Year -->
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-md-3">
+                    <div class="tc-card h-100" style="border-left: 3px solid var(--tc-gold);">
+                        <div class="tc-kpi-label">Today's Earnings</div>
+                        <div class="fs-4 fw-semibold num mt-1">₹<span th:text="${#numbers.formatDecimal(overview.todayRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
+                        <div class="small text-muted num"><span th:text="${overview.todayOrders}">0</span> order(s) today</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="tc-card h-100" style="border-left: 3px solid var(--tc-charcoal);">
+                        <div class="tc-kpi-label">Last 7 Days</div>
+                        <div class="fs-4 fw-semibold num mt-1">₹<span th:text="${#numbers.formatDecimal(overview.weekRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
+                        <div class="small text-muted num"><span th:text="${overview.weekOrders}">0</span> order(s) this week</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="tc-card h-100" style="border-left: 3px solid var(--tc-gold);">
+                        <div class="tc-kpi-label">This Month</div>
+                        <div class="fs-4 fw-semibold num mt-1">₹<span th:text="${#numbers.formatDecimal(overview.monthRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
+                        <div class="small text-muted num"><span th:text="${overview.monthOrders}">0</span> order(s) this month</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="tc-card h-100" style="border-left: 3px solid var(--tc-charcoal);">
+                        <div class="tc-kpi-label">This Year (YTD)</div>
+                        <div class="fs-4 fw-semibold num mt-1">₹<span th:text="${#numbers.formatDecimal(overview.yearRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
+                        <div class="small text-muted num"><span th:text="${overview.yearOrders}">0</span> order(s) this year</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Business Analytics Charts -->
+            <div class="row g-3 mb-4">
+                <div class="col-lg-8">
+                    <div class="tc-card h-100">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                            <div>
+                                <h2 class="h5 mb-0 serif">Earnings &amp; Selling Performance</h2>
+                                <div class="small text-muted" id="tcPeriodSubtitle">Daily revenue (₹) and order volume · Last 14 days</div>
+                            </div>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Chart Period">
+                                <button type="button" class="btn-tc" id="btnPeriodDay" data-period="day">Day (14D)</button>
+                                <button type="button" class="btn-tc-outline" id="btnPeriodMonth" data-period="month">Month (12M)</button>
+                                <button type="button" class="btn-tc-outline" id="btnPeriodYear" data-period="year">Year (5Y)</button>
+                            </div>
+                        </div>
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="revenueSalesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="tc-card h-100 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h2 class="h5 mb-0 serif">Order Status Mix</h2>
+                                <div class="small text-muted">Active vs Completed vs Cancelled</div>
+                            </div>
+                            <a href="/admin/orders" class="small text-decoration-none">Orders &rarr;</a>
+                        </div>
+                        <div style="position: relative; height: 230px;" class="my-auto">
+                            <canvas id="orderStatusChart"></canvas>
+                        </div>
+                        <div class="d-flex justify-content-around text-center small border-top pt-2 mt-2 num">
+                            <div>
+                                <div class="text-muted">In Progress</div>
+                                <strong th:text="${overview.pendingOrders}">0</strong>
+                            </div>
+                            <div>
+                                <div class="text-muted">Completed</div>
+                                <strong th:text="${overview.completedOrders}">0</strong>
+                            </div>
+                            <div>
+                                <div class="text-muted">Cancelled</div>
+                                <strong th:text="${overview.cancelledOrders}">0</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Selling Watches & Top Maisons Charts -->
+            <div class="row g-3 mb-4">
+                <div class="col-lg-6">
+                    <div class="tc-card h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 mb-0 serif">Top-Selling Watches (YTD Revenue)</h2>
+                            <a href="/admin/reports" class="small text-decoration-none">Full Reports &rarr;</a>
+                        </div>
+                        <div th:if="${#lists.isEmpty(overview.bestSellingWatches)}" class="text-muted small py-4 text-center">
+                            Sales chart will populate automatically as orders are placed and paid.
+                        </div>
+                        <div th:unless="${#lists.isEmpty(overview.bestSellingWatches)}" style="position: relative; height: 240px;">
+                            <canvas id="topWatchesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="tc-card h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 mb-0 serif">Top Maisons / Brands (YTD Revenue)</h2>
+                            <a href="/admin/brands" class="small text-decoration-none">Maisons &rarr;</a>
+                        </div>
+                        <div th:if="${#lists.isEmpty(overview.topBrandsYtd)}" class="text-muted small py-4 text-center">
+                            Maison revenue breakdown will appear as watch orders are completed.
+                        </div>
+                        <div th:unless="${#lists.isEmpty(overview.topBrandsYtd)}" style="position: relative; height: 240px;">
+                            <canvas id="topBrandsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Period Ledger & Low Stock -->
+            <div class="row g-3 mb-4">
+                <div class="col-lg-8">
+                    <div class="tc-card h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 mb-0 serif" id="tcTableTitle">14-Day Revenue &amp; Order Ledger</h2>
+                            <a href="/admin/reports" class="small text-decoration-none">Export / Custom Range &rarr;</a>
+                        </div>
+                        <div class="table-responsive" style="max-height: 290px; overflow-y: auto;">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                <tr>
+                                    <th>Period</th>
+                                    <th class="text-end">Orders</th>
+                                    <th class="text-end">Revenue (INR)</th>
+                                </tr>
+                                </thead>
+                                <tbody id="tcPeriodTableBody">
+                                <tr th:each="b : ${overview.dailySalesChart}">
+                                    <td class="num" th:text="${b.label}">2026-11-23</td>
+                                    <td class="text-end num" th:text="${b.orderCount}">0</td>
+                                    <td class="text-end num">₹<span th:text="${#numbers.formatDecimal(b.revenue,1,'COMMA',2,'POINT')}">0.00</span></td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="tc-card h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 mb-0 serif">Low-Stock Alerts</h2>
+                            <a href="/admin/inventory?lowOnly=true" class="small text-decoration-none">Manage &rarr;</a>
+                        </div>
+                        <div th:if="${#lists.isEmpty(overview.lowStockItems)}" class="text-muted small">All variants are healthy.</div>
+                        <ul class="list-unstyled mb-0 vstack gap-2">
+                            <li th:each="inv : ${overview.lowStockItems}" class="d-flex justify-content-between align-items-center border-bottom pb-2">
+                                <div>
+                                    <div class="fw-medium small" th:text="${inv.productName}">Watch</div>
+                                    <div class="text-muted" style="font-size:0.76rem;" th:text="${inv.variantSku} + ' · ' + ${inv.variantName}">SKU</div>
+                                </div>
+                                <span class="badge bg-danger num" th:text="${inv.availableQuantity} + ' left'">0 left</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Orders & Customers -->
+            <div class="row g-3">
+                <div class="col-lg-7">
+                    <div class="tc-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 mb-0 serif">Recent Orders</h2>
+                            <a href="/admin/orders" class="small text-decoration-none">All Orders &rarr;</a>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                <tr>
+                                    <th>Order #</th>
+                                    <th>Customer</th>
+                                    <th>Status</th>
+                                    <th>Payment</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(overview.recentOrders)}">
+                                    <td colspan="5" class="text-muted small py-3 text-center">No orders placed yet.</td>
+                                </tr>
+                                <tr th:each="o : ${overview.recentOrders}">
+                                    <td><a th:href="@{'/admin/orders/' + ${o.id}}" class="fw-semibold text-decoration-none num" th:text="${o.orderNumber}">TC-1</a></td>
+                                    <td th:text="${o.customerName}">Customer</td>
+                                    <td><span class="badge-tc" th:text="${o.status}">PENDING</span></td>
+                                    <td><span class="badge-tc" th:text="${o.paymentStatus}">PENDING</span></td>
+                                    <td class="text-end num">₹<span th:text="${#numbers.formatDecimal(o.grandTotal,1,'COMMA',2,'POINT')}">0.00</span></td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="tc-card mb-3">
+                        <h2 class="h5 mb-3 serif">Best-Selling Watches (YTD)</h2>
+                        <div th:if="${#lists.isEmpty(overview.bestSellingWatches)}" class="text-muted small">Sales rankings populate as orders are paid.</div>
+                        <ul class="list-unstyled mb-0 vstack gap-2">
+                            <li th:each="w : ${overview.bestSellingWatches}" class="d-flex justify-content-between small border-bottom pb-2">
+                                <span th:text="${w.brandName} + ' · ' + ${w.productName}">Watch</span>
+                                <span class="num fw-semibold" th:text="${w.unitsSold} + ' sold (₹' + ${#numbers.formatDecimal(w.revenue,1,'COMMA',2,'POINT')} + ')'">0</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="tc-card">
+                        <h2 class="h5 mb-3 serif">Recent Customers</h2>
+                        <ul class="list-unstyled mb-0 vstack gap-2">
+                            <li th:each="c : ${overview.recentCustomers}" class="d-flex justify-content-between small border-bottom pb-2">
+                                <span th:text="${c.firstName} + ' ' + ${c.lastName}">Customer</span>
+                                <span class="text-muted" th:text="${c.email}">email</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script th:inline="javascript">
+    (function () {
+        const dailyData = /*[[${overview.dailySalesChart}]]*/ [];
+        const monthlyData = /*[[${overview.monthlySalesChart}]]*/ [];
+        const yearlyData = /*[[${overview.yearlySalesChart}]]*/ [];
+        const topWatches = /*[[${overview.bestSellingWatches}]]*/ [];
+        const topBrands = /*[[${overview.topBrandsYtd}]]*/ [];
+        const orderMix = {
+            pending: /*[[${overview.pendingOrders}]]*/ 0,
+            completed: /*[[${overview.completedOrders}]]*/ 0,
+            cancelled: /*[[${overview.cancelledOrders}]]*/ 0
+        };
+
+        const fmtINR = (v) => '₹' + Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        const fmtINRFull = (v) => '₹' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        Chart.defaults.font.family = "'DM Sans', sans-serif";
+        Chart.defaults.color = '#6C6962';
+
+        // 1. Main Earnings & Selling Chart (Day / Month / Year switchable)
+        const periodConfig = {
+            day: {
+                data: dailyData,
+                subtitle: 'Daily revenue (₹) and order volume · Last 14 days',
+                tableTitle: '14-Day Revenue & Order Ledger'
+            },
+            month: {
+                data: monthlyData,
+                subtitle: 'Monthly revenue (₹) and order volume · Last 12 months',
+                tableTitle: '12-Month Revenue & Order Ledger'
+            },
+            year: {
+                data: yearlyData,
+                subtitle: 'Yearly revenue (₹) and order volume · Last 5 years',
+                tableTitle: '5-Year Revenue & Order Ledger'
+            }
+        };
+
+        const ctxMain = document.getElementById('revenueSalesChart');
+        let mainChart = null;
+
+        function renderPeriod(periodKey) {
+            const cfg = periodConfig[periodKey] || periodConfig.day;
+            const rows = cfg.data || [];
+            const labels = rows.map(r => r.label);
+            const revenues = rows.map(r => Number(r.revenue || 0));
+            const orders = rows.map(r => Number(r.orderCount || 0));
+
+            document.getElementById('tcPeriodSubtitle').textContent = cfg.subtitle;
+            document.getElementById('tcTableTitle').textContent = cfg.tableTitle;
+
+            // Update button active styles
+            ['day', 'month', 'year'].forEach(k => {
+                const btn = document.querySelector(`[data-period="${k}"]`);
+                if (!btn) return;
+                btn.className = (k === periodKey) ? 'btn-tc' : 'btn-tc-outline';
+            });
+
+            // Update ledger table
+            const tbody = document.getElementById('tcPeriodTableBody');
+            if (tbody) {
+                tbody.innerHTML = rows.slice().reverse().map(r => `
+                    <tr>
+                        <td class="num">${r.label}</td>
+                        <td class="text-end num">${r.orderCount}</td>
+                        <td class="text-end num">${fmtINRFull(r.revenue)}</td>
+                    </tr>
+                `).join('');
+            }
+
+            if (mainChart) mainChart.destroy();
+            mainChart = new Chart(ctxMain, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Earnings (₹)',
+                            data: revenues,
+                            backgroundColor: 'rgba(176, 141, 87, 0.78)',
+                            hoverBackgroundColor: '#B08D57',
+                            borderColor: '#967440',
+                            borderWidth: 1,
+                            borderRadius: 2,
+                            yAxisID: 'yRevenue',
+                            order: 2
+                        },
+                        {
+                            type: 'line',
+                            label: 'Orders Sold',
+                            data: orders,
+                            borderColor: '#1A1A1A',
+                            backgroundColor: '#1A1A1A',
+                            borderWidth: 2,
+                            pointRadius: 3.5,
+                            pointHoverRadius: 5,
+                            tension: 0.3,
+                            yAxisID: 'yOrders',
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            align: 'end',
+                            labels: { boxWidth: 12, usePointStyle: true }
+                        },
+                        tooltip: {
+                            backgroundColor: '#1A1A1A',
+                            titleColor: '#FAF9F6',
+                            bodyColor: '#FAF9F6',
+                            padding: 10,
+                            callbacks: {
+                                label: (ctx) => ctx.datasetIndex === 0
+                                    ? ` Earnings: ${fmtINRFull(ctx.parsed.y)}`
+                                    : ` Orders: ${ctx.parsed.y}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        yRevenue: {
+                            type: 'linear',
+                            position: 'left',
+                            beginAtZero: true,
+                            grid: { color: '#EFECE6' },
+                            ticks: { callback: (v) => fmtINR(v) }
+                        },
+                        yOrders: {
+                            type: 'linear',
+                            position: 'right',
+                            beginAtZero: true,
+                            grid: { drawOnChartArea: false },
+                            ticks: { precision: 0 }
+                        }
+                    }
+                }
+            });
+        }
+
+        document.querySelectorAll('[data-period]').forEach(btn => {
+            btn.addEventListener('click', () => renderPeriod(btn.getAttribute('data-period')));
+        });
+        renderPeriod('day');
+
+        // 2. Order Status Mix Doughnut
+        const ctxMix = document.getElementById('orderStatusChart');
+        if (ctxMix) {
+            const totalMix = orderMix.pending + orderMix.completed + orderMix.cancelled;
+            new Chart(ctxMix, {
+                type: 'doughnut',
+                data: {
+                    labels: ['In Progress', 'Completed', 'Cancelled'],
+                    datasets: [{
+                        data: totalMix > 0 ? [orderMix.pending, orderMix.completed, orderMix.cancelled] : [1, 0, 0],
+                        backgroundColor: totalMix > 0
+                            ? ['#B08D57', '#1A1A1A', '#C85A5A']
+                            : ['#E5E2DC', '#E5E2DC', '#E5E2DC'],
+                        borderWidth: 2,
+                        borderColor: '#FFFFFF'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '66%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } },
+                        tooltip: {
+                            enabled: totalMix > 0,
+                            backgroundColor: '#1A1A1A'
+                        }
+                    }
+                }
+            });
+        }
+
+        // 3. Top-Selling Watches Horizontal Bar Chart
+        const ctxWatches = document.getElementById('topWatchesChart');
+        if (ctxWatches && topWatches.length > 0) {
+            new Chart(ctxWatches, {
+                type: 'bar',
+                data: {
+                    labels: topWatches.map(w => w.productName),
+                    datasets: [{
+                        label: 'Revenue (₹)',
+                        data: topWatches.map(w => Number(w.revenue || 0)),
+                        backgroundColor: '#B08D57',
+                        borderRadius: 2
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1A1A1A',
+                            callbacks: {
+                                label: (ctx) => {
+                                    const item = topWatches[ctx.dataIndex];
+                                    return ` ${fmtINRFull(ctx.parsed.x)} (${item.unitsSold} sold)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: '#EFECE6' }, ticks: { callback: (v) => fmtINR(v) } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // 4. Top Maisons Horizontal Bar Chart
+        const ctxBrands = document.getElementById('topBrandsChart');
+        if (ctxBrands && topBrands.length > 0) {
+            new Chart(ctxBrands, {
+                type: 'bar',
+                data: {
+                    labels: topBrands.map(b => b.brandName),
+                    datasets: [{
+                        label: 'Revenue (₹)',
+                        data: topBrands.map(b => Number(b.revenue || 0)),
+                        backgroundColor: '#1A1A1A',
+                        borderRadius: 2
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1A1A1A',
+                            callbacks: {
+                                label: (ctx) => {
+                                    const item = topBrands[ctx.dataIndex];
+                                    return ` ${fmtINRFull(ctx.parsed.x)} (${item.unitsSold} sold)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: '#EFECE6' }, ticks: { callback: (v) => fmtINR(v) } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    })();
+</script>
+</body>
+</html>

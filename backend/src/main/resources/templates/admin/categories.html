@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Category Management')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('categories')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Watch Categories')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <div class="tc-card">
+                        <h2 class="h5 serif mb-3">Create / Update Category</h2>
+                        <form th:action="@{/admin/categories}" method="post" class="vstack gap-2">
+                            <input type="hidden" name="id">
+                            <div>
+                                <label class="form-label small">Category Name *</label>
+                                <input type="text" name="name" class="form-control" required>
+                            </div>
+                            <div>
+                                <label class="form-label small">Slug (optional)</label>
+                                <input type="text" name="slug" class="form-control">
+                            </div>
+                            <div>
+                                <label class="form-label small">Image URL</label>
+                                <input type="url" name="imageUrl" class="form-control">
+                            </div>
+                            <div>
+                                <label class="form-label small">Display Order</label>
+                                <input type="number" name="displayOrder" value="1" class="form-control">
+                            </div>
+                            <div>
+                                <label class="form-label small">Description</label>
+                                <textarea name="description" rows="3" class="form-control"></textarea>
+                            </div>
+                            <label class="small my-1"><input type="checkbox" name="active" value="true" checked> Active</label>
+                            <button type="submit" class="btn-tc mt-2">Save Category</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-lg-8">
+                    <div class="tc-card">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                <tr>
+                                    <th>Order</th>
+                                    <th>Category</th>
+                                    <th>Slug</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="c : ${categories}">
+                                    <td class="num" th:text="${c.displayOrder}">1</td>
+                                    <td class="fw-semibold" th:text="${c.name}">Dress Watches</td>
+                                    <td class="text-muted small" th:text="${c.slug}">dress</td>
+                                    <td>
+                                        <span th:if="${c.active}" class="badge bg-success">Active</span>
+                                        <span th:unless="${c.active}" class="badge bg-secondary">Inactive</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <form th:action="@{'/admin/categories/' + ${c.id} + '/delete'}" method="post" class="d-inline">
+                                            <button type="submit" class="btn-tc-outline btn-sm text-danger">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

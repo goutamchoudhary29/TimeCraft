@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Store Settings')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('settings')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Store Configuration & Editorial Content')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="tc-card">
+                <form th:action="@{/admin/settings}" method="post" class="row g-3">
+                    <div class="col-md-6" th:each="s : ${settings}">
+                        <label class="form-label small fw-semibold" th:text="${s.settingKey} + ' (' + ${s.settingGroup} + ')'">key</label>
+                        <input type="text" th:name="${s.settingKey}" th:value="${s.settingValue}" class="form-control">
+                        <div class="form-text small" th:text="${s.description}">Description</div>
+                    </div>
+                    <div class="col-12 pt-2">
+                        <button type="submit" class="btn-tc">Save Store Configuration</button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

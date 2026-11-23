@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Shipment Management')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('shipments')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Shipment & Courier Management')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <div class="tc-card">
+                        <h2 class="h5 serif mb-3">Create / Update Shipment</h2>
+                        <form th:action="@{/admin/shipments}" method="post" class="vstack gap-2">
+                            <div>
+                                <label class="form-label small">Order ID *</label>
+                                <input type="number" name="orderId" class="form-control" required>
+                            </div>
+                            <div>
+                                <label class="form-label small">Courier Name *</label>
+                                <input type="text" name="courierName" class="form-control" required placeholder="BlueDart Insured Express">
+                            </div>
+                            <div>
+                                <label class="form-label small">Tracking Number *</label>
+                                <input type="text" name="trackingNumber" class="form-control" required>
+                            </div>
+                            <div>
+                                <label class="form-label small">Tracking URL</label>
+                                <input type="url" name="trackingUrl" class="form-control">
+                            </div>
+                            <div>
+                                <label class="form-label small">Shipment Status *</label>
+                                <select name="status" class="form-select">
+                                    <option th:each="st : ${shipmentStatuses}" th:value="${st}" th:text="${st}"></option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-label small">Estimated Delivery Date</label>
+                                <input type="date" name="estimatedDeliveryDate" class="form-control">
+                            </div>
+                            <div>
+                                <label class="form-label small">Hub / Location</label>
+                                <input type="text" name="location" class="form-control" placeholder="Bengaluru Vault">
+                            </div>
+                            <div>
+                                <label class="form-label small">Event Description</label>
+                                <input type="text" name="eventDescription" class="form-control" placeholder="Dispatched via armoured courier">
+                            </div>
+                            <button type="submit" class="btn-tc mt-2">Save Shipment</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-lg-8">
+                    <div class="tc-card">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                <tr>
+                                    <th>Order #</th>
+                                    <th>Courier</th>
+                                    <th>Tracking #</th>
+                                    <th>Shipment Status</th>
+                                    <th>Est. Delivery</th>
+                                    <th class="text-end">Events</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(shipments.content)}">
+                                    <td colspan="6" class="text-center text-muted py-3">No shipments created yet.</td>
+                                </tr>
+                                <tr th:each="s : ${shipments.content}">
+                                    <td><a th:href="@{'/admin/orders/' + ${s.orderId}}" class="num fw-semibold text-decoration-none" th:text="${s.orderNumber}">TC-1</a></td>
+                                    <td th:text="${s.courierName}">Courier</td>
+                                    <td class="num" th:text="${s.trackingNumber}">TRK123</td>
+                                    <td><span class="badge-tc" th:text="${s.status}">IN_TRANSIT</span></td>
+                                    <td class="num small" th:text="${s.estimatedDeliveryDate ?: '—'}">—</td>
+                                    <td class="text-end num" th:text="${#lists.size(s.events)}">1</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

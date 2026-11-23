@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Images · ' + ${product.name})}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('products')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Images · ' + ${product.name})}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <div class="tc-card mb-3">
+                        <h2 class="h5 serif mb-3">Upload to Cloudinary</h2>
+                        <form th:action="@{'/admin/products/' + ${product.id} + '/images/upload'}" method="post" enctype="multipart/form-data" class="vstack gap-2">
+                            <div>
+                                <label class="form-label small">Image File (JPEG / PNG / WebP, max 5MB) *</label>
+                                <input type="file" name="file" accept="image/jpeg,image/png,image/webp" class="form-control" required>
+                            </div>
+                            <div>
+                                <label class="form-label small">Alt Text</label>
+                                <input type="text" name="altText" class="form-control" th:value="${product.name}">
+                            </div>
+                            <label class="small"><input type="checkbox" name="primary" value="true"> Set as Primary Image</label>
+                            <button type="submit" class="btn-tc mt-2">Upload Image</button>
+                        </form>
+                    </div>
+                    <div class="tc-card">
+                        <h2 class="h5 serif mb-3">Add Image URL</h2>
+                        <form th:action="@{'/admin/products/' + ${product.id} + '/images/url'}" method="post" class="vstack gap-2">
+                            <div>
+                                <label class="form-label small">Image URL *</label>
+                                <input type="url" name="url" class="form-control" required>
+                            </div>
+                            <div>
+                                <label class="form-label small">Alt Text</label>
+                                <input type="text" name="altText" class="form-control" th:value="${product.name}">
+                            </div>
+                            <label class="small"><input type="checkbox" name="primary" value="true"> Set as Primary Image</label>
+                            <button type="submit" class="btn-tc mt-2">Add Image</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-lg-8">
+                    <div class="tc-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 serif mb-0">Gallery Images</h2>
+                            <a th:href="@{'/admin/products/' + ${product.id} + '/edit'}" class="btn-tc-outline btn-sm text-decoration-none">&larr; Back to Watch</a>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-4" th:each="img : ${product.images}">
+                                <div class="border p-2 h-100 d-flex flex-column justify-content-between">
+                                    <img th:src="${img.url}" th:alt="${img.altText}" style="width:100%;aspect-ratio:4/5;object-fit:cover;">
+                                    <div class="mt-2">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span th:if="${img.primary}" class="badge bg-dark">Primary</span>
+                                            <span th:unless="${img.primary}" class="small text-muted">Gallery</span>
+                                            <span class="small text-muted" th:text="${img.publicId ?: 'External URL'}"></span>
+                                        </div>
+                                        <div class="d-flex gap-1">
+                                            <form th:unless="${img.primary}" th:action="@{'/admin/products/' + ${product.id} + '/images/' + ${img.id} + '/primary'}" method="post">
+                                                <button type="submit" class="btn-tc-outline btn-sm">Make Primary</button>
+                                            </form>
+                                            <form th:action="@{'/admin/products/' + ${product.id} + '/images/' + ${img.id} + '/delete'}" method="post">
+                                                <button type="submit" class="btn-tc-outline btn-sm text-danger">Delete</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Review Moderation')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('reviews')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Verified Purchase Review Moderation')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="tc-card mb-3">
+                <form method="get" action="/admin/reviews" class="d-flex gap-2">
+                    <select name="status" class="form-select" style="width:200px;">
+                        <option value="">All Statuses</option>
+                        <option value="PENDING" th:selected="${status?.name() == 'PENDING'}">PENDING</option>
+                        <option value="APPROVED" th:selected="${status?.name() == 'APPROVED'}">APPROVED</option>
+                        <option value="REJECTED" th:selected="${status?.name() == 'REJECTED'}">REJECTED</option>
+                    </select>
+                    <button type="submit" class="btn-tc">Filter</button>
+                </form>
+            </div>
+            <div class="tc-card">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Timepiece</th>
+                            <th>Customer</th>
+                            <th>Rating</th>
+                            <th>Review</th>
+                            <th>Status</th>
+                            <th class="text-end">Moderate</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(reviews.content)}">
+                            <td colspan="6" class="text-center text-muted py-3">No reviews found.</td>
+                        </tr>
+                        <tr th:each="r : ${reviews.content}">
+                            <td class="fw-semibold" th:text="${r.productName}">Watch</td>
+                            <td th:text="${r.reviewerName}">Customer</td>
+                            <td class="num fw-semibold" th:text="${r.rating} + ' / 5'">5 / 5</td>
+                            <td>
+                                <div class="fw-medium" th:text="${r.title}">Title</div>
+                                <div class="text-muted small" th:text="${r.body}">Body</div>
+                            </td>
+                            <td><span class="badge-tc" th:text="${r.status}">PENDING</span></td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-1">
+                                    <form th:action="@{'/admin/reviews/' + ${r.id} + '/moderate'}" method="post">
+                                        <input type="hidden" name="status" value="APPROVED">
+                                        <button type="submit" class="btn-tc-outline btn-sm text-success">Approve</button>
+                                    </form>
+                                    <form th:action="@{'/admin/reviews/' + ${r.id} + '/moderate'}" method="post">
+                                        <input type="hidden" name="status" value="REJECTED">
+                                        <button type="submit" class="btn-tc-outline btn-sm">Reject</button>
+                                    </form>
+                                    <form th:action="@{'/admin/reviews/' + ${r.id} + '/delete'}" method="post">
+                                        <button type="submit" class="btn-tc-outline btn-sm text-danger">Delete</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

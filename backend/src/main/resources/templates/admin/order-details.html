@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Order ' + ${order.orderNumber})}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('orders')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Order ' + ${order.orderNumber})}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="row g-3">
+                <div class="col-lg-8">
+                    <div class="tc-card mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 serif mb-0">Immutable Order Snapshot</h2>
+                            <div class="d-flex gap-2">
+                                <span class="badge-tc" th:text="'STATUS: ' + ${order.status}">CONFIRMED</span>
+                                <span class="badge-tc" th:text="'PAYMENT: ' + ${order.paymentStatus}">PAID</span>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                <tr>
+                                    <th>Watch / Variant Snapshot</th>
+                                    <th>SKU</th>
+                                    <th class="text-end">Unit</th>
+                                    <th class="text-end">Qty</th>
+                                    <th class="text-end">Discount</th>
+                                    <th class="text-end">GST</th>
+                                    <th class="text-end">Line Total</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="item : ${order.items}">
+                                    <td>
+                                        <div class="fw-semibold" th:text="${item.brandName} + ' · ' + ${item.productName}">Watch</div>
+                                        <div class="text-muted small" th:text="${item.variantName}">Variant</div>
+                                    </td>
+                                    <td class="num small" th:text="${item.sku}">SKU</td>
+                                    <td class="text-end num">₹<span th:text="${item.unitPrice}">0</span></td>
+                                    <td class="text-end num" th:text="${item.quantity}">1</td>
+                                    <td class="text-end num">₹<span th:text="${item.discountAmount}">0</span></td>
+                                    <td class="text-end num">₹<span th:text="${item.taxAmount}">0</span></td>
+                                    <td class="text-end num fw-semibold">₹<span th:text="${item.lineTotal}">0</span></td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="row justify-content-end">
+                            <div class="col-md-5 small">
+                                <div class="d-flex justify-content-between py-1"><span>Subtotal</span><span class="num">₹<span th:text="${order.subtotal}">0</span></span></div>
+                                <div class="d-flex justify-content-between py-1"><span>Discount</span><span class="num">- ₹<span th:text="${order.discountTotal}">0</span></span></div>
+                                <div class="d-flex justify-content-between py-1"><span th:text="${order.taxInclusive ? 'Included GST' : 'GST'}">GST</span><span class="num">₹<span th:text="${order.taxTotal}">0</span></span></div>
+                                <div class="d-flex justify-content-between py-1"><span>Insured Shipping</span><span class="num">₹<span th:text="${order.shippingTotal}">0</span></span></div>
+                                <div class="d-flex justify-content-between py-2 border-top fw-bold"><span>Grand Total</span><span class="num">₹<span th:text="${order.grandTotal}">0</span></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tc-card">
+                        <h2 class="h5 serif mb-3">Status Transition History</h2>
+                        <ul class="list-unstyled mb-0 vstack gap-2">
+                            <li th:each="h : ${order.statusHistory}" class="d-flex justify-content-between small border-bottom pb-2">
+                                <div>
+                                    <span class="badge-tc" th:text="${h.fromStatus != null ? h.fromStatus + ' → ' + h.toStatus : h.toStatus}">STATUS</span>
+                                    <span class="ms-2" th:text="${h.note}">Note</span>
+                                </div>
+                                <span class="text-muted num" th:text="${h.changedByType} + ' · ' + ${#temporals.format(h.createdAt, 'yyyy-MM-dd HH:mm')}">Time</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="tc-card mb-3">
+                        <h2 class="h5 serif mb-2">Delivery Address Snapshot</h2>
+                        <div class="small">
+                            <div class="fw-semibold" th:text="${order.shipFullName}">Name</div>
+                            <div th:text="${order.shipLine1}">Line 1</div>
+                            <div th:if="${order.shipLine2}" th:text="${order.shipLine2}">Line 2</div>
+                            <div th:text="${order.shipCity} + ', ' + ${order.shipState} + ' - ' + ${order.shipPostalCode} + ' (' + ${order.shipCountry} + ')'">City</div>
+                            <div class="text-muted mt-1" th:text="'Phone: ' + ${order.shipPhone} + ' · ' + ${order.customerEmail}">Contact</div>
+                        </div>
+                    </div>
+
+                    <div class="tc-card mb-3">
+                        <h2 class="h5 serif mb-3">Update Order Status</h2>
+                        <form th:action="@{'/admin/orders/' + ${order.id} + '/status'}" method="post" class="vstack gap-2">
+                            <select name="status" class="form-select">
+                                <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}" th:selected="${order.status == s}"></option>
+                            </select>
+                            <input type="text" name="note" class="form-control" placeholder="Transition note">
+                            <button type="submit" class="btn-tc">Apply Validated Transition</button>
+                        </form>
+                    </div>
+
+                    <div class="tc-card">
+                        <h2 class="h5 serif mb-3">Dispatch &amp; Tracking</h2>
+                        <form th:action="@{/admin/shipments}" method="post" class="vstack gap-2">
+                            <input type="hidden" name="orderId" th:value="${order.id}">
+                            <input type="text" name="courierName" class="form-control" required placeholder="BlueDart Insured Priority" th:value="${shipment?.courierName}">
+                            <input type="text" name="trackingNumber" class="form-control" required placeholder="Tracking Number" th:value="${shipment?.trackingNumber}">
+                            <input type="url" name="trackingUrl" class="form-control" placeholder="Tracking URL" th:value="${shipment?.trackingUrl}">
+                            <select name="status" class="form-select">
+                                <option th:each="st : ${shipmentStatuses}" th:value="${st}" th:text="${st}" th:selected="${shipment?.status == st}"></option>
+                            </select>
+                            <input type="text" name="location" class="form-control" placeholder="Current Hub Location">
+                            <input type="text" name="eventDescription" class="form-control" placeholder="Tracking event description">
+                            <button type="submit" class="btn-tc">Save Shipment Event</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

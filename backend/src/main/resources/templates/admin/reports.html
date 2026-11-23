@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Reports & Analytics')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('reports')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Sales, Revenue & Inventory Analytics')}"></header>
+        <main class="tc-content">
+            <div class="tc-card mb-3">
+                <form method="get" action="/admin/reports" class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small">From Date (UTC)</label>
+                        <input type="date" name="from" th:value="${from}" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">To Date (UTC)</label>
+                        <input type="date" name="to" th:value="${to}" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn-tc">Run Aggregated Report</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="tc-card h-100">
+                        <div class="tc-kpi-label">Period Revenue</div>
+                        <div class="tc-kpi-value num">₹<span th:text="${#numbers.formatDecimal(report.totalRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="tc-card h-100">
+                        <div class="tc-kpi-label">Orders &amp; AOV</div>
+                        <div class="tc-kpi-value num" th:text="${report.orderCount}">0</div>
+                        <div class="small text-muted">Avg Order Value: ₹<span th:text="${#numbers.formatDecimal(report.averageOrderValue,1,'COMMA',2,'POINT')}">0.00</span></div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="tc-card h-100">
+                        <div class="tc-kpi-label">Refunds Processed</div>
+                        <div class="tc-kpi-value num">₹<span th:text="${#numbers.formatDecimal(report.refundedTotal,1,'COMMA',2,'POINT')}">0.00</span></div>
+                        <div class="small text-muted" th:text="${report.refundedCount} + ' refund(s)'">0</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="tc-card h-100">
+                        <div class="tc-kpi-label">New Customer Registrations</div>
+                        <div class="tc-kpi-value num" th:text="${report.newCustomerRegistrations}">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Charts for Selected Date Range -->
+            <div class="tc-card mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h2 class="h5 serif mb-0">Daily Revenue &amp; Order Volume</h2>
+                        <div class="small text-muted">Selected range breakdown (<span th:text="${from}">from</span> to <span th:text="${to}">to</span>)</div>
+                    </div>
+                </div>
+                <div style="position: relative; height: 290px;">
+                    <canvas id="reportDailyChart"></canvas>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-lg-6">
+                    <div class="tc-card h-100">
+                        <h2 class="h5 serif mb-3">Top Watches Revenue Chart</h2>
+                        <div th:if="${#lists.isEmpty(report.topProducts)}" class="text-muted small py-4 text-center">No watch sales in this date range.</div>
+                        <div th:unless="${#lists.isEmpty(report.topProducts)}" style="position: relative; height: 240px;">
+                            <canvas id="reportProductsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="tc-card h-100">
+                        <h2 class="h5 serif mb-3">Maison Revenue Share</h2>
+                        <div th:if="${#lists.isEmpty(report.topBrands)}" class="text-muted small py-4 text-center">No maison sales in this date range.</div>
+                        <div th:unless="${#lists.isEmpty(report.topBrands)}" style="position: relative; height: 240px;">
+                            <canvas id="reportBrandsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <div class="tc-card h-100">
+                        <h2 class="h5 serif mb-3">Best-Selling Watches in Period</h2>
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>Timepiece</th><th>Maison</th><th class="text-end">Units</th><th class="text-end">Revenue</th></tr></thead>
+                            <tbody>
+                            <tr th:if="${#lists.isEmpty(report.topProducts)}">
+                                <td colspan="4" class="text-muted small text-center py-3">No watch sales recorded in this period.</td>
+                            </tr>
+                            <tr th:each="p : ${report.topProducts}">
+                                <td th:text="${p.productName}">Watch</td>
+                                <td th:text="${p.brandName}">Brand</td>
+                                <td class="text-end num" th:text="${p.unitsSold}">0</td>
+                                <td class="text-end num">₹<span th:text="${#numbers.formatDecimal(p.revenue,1,'COMMA',2,'POINT')}">0</span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="tc-card h-100">
+                        <h2 class="h5 serif mb-3">Best-Performing Maisons</h2>
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>Maison</th><th class="text-end">Units Sold</th><th class="text-end">Revenue</th></tr></thead>
+                            <tbody>
+                            <tr th:if="${#lists.isEmpty(report.topBrands)}">
+                                <td colspan="3" class="text-muted small text-center py-3">No maison sales recorded in this period.</td>
+                            </tr>
+                            <tr th:each="b : ${report.topBrands}">
+                                <td th:text="${b.brandName}">Brand</td>
+                                <td class="text-end num" th:text="${b.unitsSold}">0</td>
+                                <td class="text-end num">₹<span th:text="${#numbers.formatDecimal(b.revenue,1,'COMMA',2,'POINT')}">0</span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script th:inline="javascript">
+    (function () {
+        const buckets = /*[[${report.buckets}]]*/ [];
+        const topProducts = /*[[${report.topProducts}]]*/ [];
+        const topBrands = /*[[${report.topBrands}]]*/ [];
+
+        const fmtINR = (v) => '₹' + Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        const fmtINRFull = (v) => '₹' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        Chart.defaults.font.family = "'DM Sans', sans-serif";
+        Chart.defaults.color = '#6C6962';
+
+        const ctxDaily = document.getElementById('reportDailyChart');
+        if (ctxDaily) {
+            new Chart(ctxDaily, {
+                type: 'bar',
+                data: {
+                    labels: buckets.map(b => b.label),
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Revenue (₹)',
+                            data: buckets.map(b => Number(b.revenue || 0)),
+                            backgroundColor: 'rgba(176, 141, 87, 0.78)',
+                            borderColor: '#967440',
+                            borderWidth: 1,
+                            borderRadius: 2,
+                            yAxisID: 'yRev'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Orders',
+                            data: buckets.map(b => Number(b.orderCount || 0)),
+                            borderColor: '#1A1A1A',
+                            backgroundColor: '#1A1A1A',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            tension: 0.25,
+                            yAxisID: 'yOrd'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top', align: 'end', labels: { boxWidth: 12, usePointStyle: true } },
+                        tooltip: {
+                            backgroundColor: '#1A1A1A',
+                            callbacks: {
+                                label: (ctx) => ctx.datasetIndex === 0
+                                    ? ` Revenue: ${fmtINRFull(ctx.parsed.y)}`
+                                    : ` Orders: ${ctx.parsed.y}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false } },
+                        yRev: { type: 'linear', position: 'left', beginAtZero: true, grid: { color: '#EFECE6' }, ticks: { callback: fmtINR } },
+                        yOrd: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+
+        const ctxProducts = document.getElementById('reportProductsChart');
+        if (ctxProducts && topProducts.length > 0) {
+            new Chart(ctxProducts, {
+                type: 'bar',
+                data: {
+                    labels: topProducts.map(p => p.productName),
+                    datasets: [{
+                        label: 'Revenue (₹)',
+                        data: topProducts.map(p => Number(p.revenue || 0)),
+                        backgroundColor: '#B08D57',
+                        borderRadius: 2
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1A1A1A',
+                            callbacks: {
+                                label: (ctx) => ` ${fmtINRFull(ctx.parsed.x)} (${topProducts[ctx.dataIndex].unitsSold} sold)`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: '#EFECE6' }, ticks: { callback: fmtINR } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        const ctxBrands = document.getElementById('reportBrandsChart');
+        if (ctxBrands && topBrands.length > 0) {
+            const palette = ['#1A1A1A', '#B08D57', '#7D6E5D', '#C9B596', '#4E4A44', '#D4C4A8', '#8C6D3F'];
+            new Chart(ctxBrands, {
+                type: 'doughnut',
+                data: {
+                    labels: topBrands.map(b => b.brandName),
+                    datasets: [{
+                        data: topBrands.map(b => Number(b.revenue || 0)),
+                        backgroundColor: topBrands.map((_, i) => palette[i % palette.length]),
+                        borderWidth: 2,
+                        borderColor: '#FFFFFF'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 10 } },
+                        tooltip: {
+                            backgroundColor: '#1A1A1A',
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.label}: ${fmtINRFull(ctx.parsed)} (${topBrands[ctx.dataIndex].unitsSold} units)`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    })();
+</script>
+</body>
+</html>

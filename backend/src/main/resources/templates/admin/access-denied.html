@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Access Denied')}"></head>
+<body class="d-flex align-items-center justify-content-center min-vh-100">
+<div class="tc-card text-center" style="max-width:460px;padding:2.5rem;">
+    <h1 class="h2 serif mb-2">Access Restricted</h1>
+    <p class="text-muted small mb-4">
+        This portal is restricted to verified TimeCraft administrators. Customer accounts cannot access administrative routes.
+    </p>
+    <div class="d-flex justify-content-center gap-2">
+        <a href="/admin/login" class="btn-tc text-decoration-none">Admin Sign In</a>
+        <a href="/" class="btn-tc-outline text-decoration-none">Customer Storefront</a>
+    </div>
+</div>
+</body>
+</html>

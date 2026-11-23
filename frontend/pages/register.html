@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account · TimeCraft</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/styles.css" rel="stylesheet">
+</head>
+<body>
+<div id="tcHeader"></div>
+<main class="container py-5" style="max-width:520px;">
+    <div class="tc-panel">
+        <div class="tc-eyebrow">New Collector Registration</div>
+        <h1 class="h2 tc-serif mb-2">Create Your TimeCraft Account</h1>
+        <p class="text-muted small mb-3">Track insured shipments, download invoices and access verified-purchaser reviews.</p>
+        <div id="googleRegisterHost" class="mb-2"></div>
+        <div class="tc-divider">or register with email</div>
+        <form id="registerForm" class="row g-3">
+            <div class="col-6">
+                <label class="form-label small text-uppercase">First Name *</label>
+                <input type="text" id="regFirst" class="form-control" required>
+            </div>
+            <div class="col-6">
+                <label class="form-label small text-uppercase">Last Name *</label>
+                <input type="text" id="regLast" class="form-control" required>
+            </div>
+            <div class="col-12">
+                <label class="form-label small text-uppercase">Email Address *</label>
+                <input type="email" id="regEmail" class="form-control" required>
+            </div>
+            <div class="col-12">
+                <label class="form-label small text-uppercase">Mobile Phone</label>
+                <input type="tel" id="regPhone" class="form-control" placeholder="+91 98765 43210">
+            </div>
+            <div class="col-12">
+                <label class="form-label small text-uppercase">Password * (min 8 chars, upper + lower + digit)</label>
+                <input type="password" id="regPassword" class="form-control" required minlength="8">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn-tc-primary w-100">Create Collector Account</button>
+            </div>
+        </form>
+        <div class="border-top mt-4 pt-3 small text-center">
+            Already registered? <a href="/pages/login.html" class="fw-semibold">Sign In</a>
+        </div>
+    </div>
+</main>
+<div id="tcFooter"></div>
+<script src="/js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    await TC.mountChrome();
+    await TC.mountGoogleAuthButton('googleRegisterHost', '/pages/profile.html');
+    document.getElementById('registerForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        try {
+            const data = await TC.api('/auth/register', {
+                method: 'POST',
+                body: {
+                    firstName: document.getElementById('regFirst').value,
+                    lastName: document.getElementById('regLast').value,
+                    email: document.getElementById('regEmail').value,
+                    phone: document.getElementById('regPhone').value,
+                    password: document.getElementById('regPassword').value
+                }
+            });
+            TC.setAuthSession(data);
+            window.location.href = '/pages/profile.html';
+        } catch (err) {
+            TC.toast(err.message, 'error');
+        }
+    });
+});
+</script>
+</body>
+</html>

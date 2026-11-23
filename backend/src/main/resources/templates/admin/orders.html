@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Order Management')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('orders')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Order Management')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="tc-card mb-3">
+                <form method="get" action="/admin/orders" class="row g-2 align-items-center">
+                    <div class="col-md-4">
+                        <input type="text" name="search" th:value="${search}" class="form-control" placeholder="Order #, customer name or email">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="status" class="form-select">
+                            <option value="">All Order Statuses</option>
+                            <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}" th:selected="${status == s}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="paymentStatus" class="form-select">
+                            <option value="">All Payment Statuses</option>
+                            <option th:each="ps : ${paymentStatuses}" th:value="${ps}" th:text="${ps}" th:selected="${paymentStatus == ps}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex gap-2">
+                        <button type="submit" class="btn-tc">Filter</button>
+                        <a href="/admin/orders" class="btn-tc-outline text-decoration-none">Reset</a>
+                    </div>
+                </form>
+            </div>
+            <div class="tc-card">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Placed At (UTC)</th>
+                            <th>Customer</th>
+                            <th class="text-end">Items</th>
+                            <th>Order Status</th>
+                            <th>Payment</th>
+                            <th class="text-end">Grand Total</th>
+                            <th class="text-end">Details</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(orders.content)}">
+                            <td colspan="8" class="text-center text-muted py-3">No matching orders found.</td>
+                        </tr>
+                        <tr th:each="o : ${orders.content}">
+                            <td class="num fw-semibold" th:text="${o.orderNumber}">TC-001</td>
+                            <td class="small text-muted num" th:text="${#temporals.format(o.placedAt, 'yyyy-MM-dd HH:mm')}">2026-11-23</td>
+                            <td>
+                                <div class="fw-medium" th:text="${o.customerName}">Name</div>
+                                <div class="text-muted small" th:text="${o.customerEmail}">email</div>
+                            </td>
+                            <td class="text-end num" th:text="${o.itemCount}">1</td>
+                            <td><span class="badge-tc" th:text="${o.status}">CONFIRMED</span></td>
+                            <td><span class="badge-tc" th:text="${o.paymentStatus}">PAID</span></td>
+                            <td class="text-end num fw-semibold">₹<span th:text="${o.grandTotal}">0.00</span></td>
+                            <td class="text-end">
+                                <a th:href="@{'/admin/orders/' + ${o.id}}" class="btn-tc-outline btn-sm text-decoration-none">Inspect</a>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

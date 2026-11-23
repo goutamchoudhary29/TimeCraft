@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head(${product != null ? 'Edit Timepiece' : 'Create Timepiece'})}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('products')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar(${product != null ? 'Edit Timepiece · ' + product.name : 'Create New Timepiece'})}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="tc-card">
+                <form th:action="@{/admin/products/save}" method="post" class="row g-3">
+                    <input type="hidden" name="id" th:value="${product?.id}">
+                    <div class="col-md-5">
+                        <label class="form-label small">Watch Name *</label>
+                        <input type="text" name="name" th:value="${product?.name}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Model Reference *</label>
+                        <input type="text" name="modelName" th:value="${product?.modelName}" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Master SKU *</label>
+                        <input type="text" name="sku" th:value="${product?.sku}" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Maison / Brand *</label>
+                        <select name="brandId" class="form-select" required>
+                            <option th:each="b : ${brands}" th:value="${b.id}" th:text="${b.name}" th:selected="${product?.brandId == b.id}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Category *</label>
+                        <select name="categoryId" class="form-select" required>
+                            <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.name}" th:selected="${product?.categoryId == c.id}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Movement Type *</label>
+                        <select name="movementType" class="form-select" required>
+                            <option th:each="m : ${movements}" th:value="${m}" th:text="${m}" th:selected="${product?.movementType == m}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Case Diameter (mm) *</label>
+                        <input type="number" step="0.5" name="caseDiameterMm" th:value="${product?.caseDiameterMm ?: 39.0}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Case Material *</label>
+                        <input type="text" name="caseMaterial" th:value="${product?.caseMaterial ?: 'Stainless Steel'}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Water Resistance (m) *</label>
+                        <input type="number" name="waterResistanceM" th:value="${product?.waterResistanceM ?: 100}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Crystal Type *</label>
+                        <input type="text" name="crystalType" th:value="${product?.crystalType ?: 'Sapphire'}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Strap Material *</label>
+                        <input type="text" name="strapMaterial" th:value="${product?.strapMaterial ?: 'Leather'}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Dial Color *</label>
+                        <input type="text" name="dialColor" th:value="${product?.dialColor ?: 'Black'}" class="form-control" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Case Color</label>
+                        <input type="text" name="caseColor" th:value="${product?.caseColor ?: 'Steel'}" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Audience</label>
+                        <select name="gender" class="form-select">
+                            <option th:each="g : ${genders}" th:value="${g}" th:text="${g}" th:selected="${product?.gender == g}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Warranty (months)</label>
+                        <input type="number" name="warrantyMonths" th:value="${product?.warrantyMonths ?: 24}" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Regular Price (INR) *</label>
+                        <input type="number" step="0.01" name="regularPrice" th:value="${product?.regularPrice}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Selling Price (INR) *</label>
+                        <input type="number" step="0.01" name="sellingPrice" th:value="${product?.sellingPrice}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Status</label>
+                        <select name="status" class="form-select">
+                            <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}" th:selected="${product?.status == s}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3" th:if="${product == null}">
+                        <label class="form-label small">Opening Stock (Default Variant)</label>
+                        <input type="number" name="initialStock" value="10" class="form-control">
+                    </div>
+                    <div class="col-12" th:if="${product == null}">
+                        <label class="form-label small">Primary Image URL</label>
+                        <input type="url" name="primaryImageUrl" class="form-control" placeholder="https://images.unsplash.com/...">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small">Short Editorial Summary</label>
+                        <input type="text" name="shortDescription" th:value="${product?.shortDescription}" class="form-control">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small">Detailed Horological Description</label>
+                        <textarea name="description" rows="4" class="form-control" th:text="${product?.description}"></textarea>
+                    </div>
+                    <div class="col-12 d-flex gap-4">
+                        <label class="small"><input type="checkbox" name="featured" value="true" th:checked="${product?.featured}"> Featured</label>
+                        <label class="small"><input type="checkbox" name="newArrival" value="true" th:checked="${product?.newArrival}"> New Arrival</label>
+                        <label class="small"><input type="checkbox" name="bestSeller" value="true" th:checked="${product?.bestSeller}"> Best Seller</label>
+                    </div>
+                    <div class="col-12 d-flex gap-2 pt-2">
+                        <button type="submit" class="btn-tc">Save Timepiece</button>
+                        <a href="/admin/products" class="btn-tc-outline text-decoration-none">Back to Catalog</a>
+                        <a th:if="${product != null}" th:href="@{'/admin/products/' + ${product.id} + '/variants'}" class="btn-tc-outline text-decoration-none">Manage Variants</a>
+                        <a th:if="${product != null}" th:href="@{'/admin/products/' + ${product.id} + '/images'}" class="btn-tc-outline text-decoration-none">Manage Images</a>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

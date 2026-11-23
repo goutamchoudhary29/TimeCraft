@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Return Requests')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('returns')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Return Request Management')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="tc-card">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Return #</th>
+                            <th>Order #</th>
+                            <th>Customer</th>
+                            <th>Reason</th>
+                            <th>Items</th>
+                            <th>Status</th>
+                            <th class="text-end">Decision</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(returns.content)}">
+                            <td colspan="7" class="text-center text-muted py-3">No return requests submitted.</td>
+                        </tr>
+                        <tr th:each="r : ${returns.content}">
+                            <td class="num fw-semibold" th:text="${r.returnNumber}">RET-1</td>
+                            <td><a th:href="@{'/admin/orders/' + ${r.orderId}}" class="num text-decoration-none" th:text="${r.orderNumber}">TC-1</a></td>
+                            <td th:text="${r.customerName}">Customer</td>
+                            <td>
+                                <div class="fw-medium" th:text="${r.reasonCode}">Reason</div>
+                                <div class="text-muted small" th:text="${r.reasonDetails}">Details</div>
+                            </td>
+                            <td>
+                                <div th:each="li : ${r.items}" class="small" th:text="${li.productName} + ' × ' + ${li.quantity}"></div>
+                            </td>
+                            <td><span class="badge-tc" th:text="${r.status}">REQUESTED</span></td>
+                            <td class="text-end">
+                                <form th:if="${r.status.name() == 'REQUESTED'}" th:action="@{'/admin/returns/' + ${r.id} + '/decision'}" method="post" class="d-inline-flex gap-1">
+                                    <button type="submit" name="status" value="APPROVED" class="btn-tc-outline btn-sm text-success">Approve</button>
+                                    <button type="submit" name="status" value="REJECTED" class="btn-tc-outline btn-sm text-danger">Reject</button>
+                                </form>
+                                <form th:if="${r.status.name() == 'APPROVED'}" th:action="@{'/admin/returns/' + ${r.id} + '/decision'}" method="post" class="d-inline">
+                                    <button type="submit" name="status" value="RECEIVED" class="btn-tc-outline btn-sm">Mark Received &amp; Restore Stock</button>
+                                </form>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

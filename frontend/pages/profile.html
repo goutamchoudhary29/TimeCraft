@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collector Profile · TimeCraft</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/styles.css" rel="stylesheet">
+</head>
+<body>
+<div id="tcHeader"></div>
+<main class="container py-5">
+    <!-- Top Collector Summary Bar -->
+    <div class="tc-panel mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex align-items-center gap-3">
+            <div id="pfAvatarCircle" style="width:56px;height:56px;border-radius:50%;background:#1A1A1A;color:#F8F7F4;display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-size:26px;">C</div>
+            <div>
+                <div class="tc-eyebrow">Private Client Dossier</div>
+                <h1 class="h2 tc-serif mb-0" id="pfHeaderName">Collector Profile</h1>
+                <div class="small text-muted" id="pfHeaderMeta">Loading account telemetry…</div>
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="/pages/orders.html" class="btn-tc-secondary">Order Archive</a>
+            <a href="/pages/addresses.html" class="btn-tc-secondary">Delivery Addresses</a>
+            <a href="/pages/wishlist.html" class="btn-tc-secondary">Wishlist</a>
+            <button type="button" class="btn-tc-secondary text-danger" onclick="TC.logout()">Sign Out</button>
+        </div>
+    </div>
+
+    <!-- Symmetrical 2-Column Equal-Height Grid -->
+    <div class="row g-4 align-items-stretch">
+        <div class="col-lg-6 d-flex">
+            <div class="tc-panel w-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                        <h2 class="h4 tc-serif mb-0">Personal &amp; Concierge Details</h2>
+                        <span class="badge bg-dark rounded-0" id="pfVerifiedBadge">CUSTOMER</span>
+                    </div>
+                    <form id="profileForm" class="row g-3">
+                        <div class="col-sm-6">
+                            <label class="form-label small text-uppercase">First Name</label>
+                            <input type="text" id="pfFirst" class="form-control" required>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small text-uppercase">Last Name</label>
+                            <input type="text" id="pfLast" class="form-control" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small text-uppercase">Registered Email Address</label>
+                            <input type="email" id="pfEmail" class="form-control" disabled>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small text-uppercase">Mobile Phone</label>
+                            <input type="tel" id="pfPhone" class="form-control" placeholder="+91 98765 43210">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small text-uppercase">Date of Birth</label>
+                            <input type="date" id="pfDob" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="small d-flex align-items-center gap-2">
+                                <input type="checkbox" id="pfMarketing">
+                                Receive private timepiece allocations &amp; horological dispatches
+                            </label>
+                        </div>
+                        <div class="col-12 pt-2">
+                            <button type="submit" class="btn-tc-primary w-100">Save Collector Profile</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="tc-panel-stone mt-4 p-3 small d-flex justify-content-between align-items-center">
+                    <span>Need strap sizing or warranty assistance?</span>
+                    <a href="/pages/contact.html" class="fw-semibold text-uppercase">Contact Concierge &rarr;</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 d-flex flex-column gap-4">
+            <div class="tc-panel">
+                <div class="border-bottom pb-2 mb-3">
+                    <h2 class="h4 tc-serif mb-0">Security &amp; Password</h2>
+                </div>
+                <form id="passwordForm" class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="form-label small text-uppercase">Current Password</label>
+                        <input type="password" id="curPass" class="form-control" required>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small text-uppercase">New Password</label>
+                        <input type="password" id="newPass" class="form-control" required minlength="8" placeholder="Min 8 chars, upper+lower+digit">
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn-tc-secondary w-100">Update Password</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="tc-panel flex-grow-1 d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                    <h2 class="h4 tc-serif mb-0">Vault &amp; Order Dispatches</h2>
+                    <span class="tc-eyebrow">Notifications</span>
+                </div>
+                <div id="notifHost" class="vstack gap-2 small flex-grow-1"></div>
+            </div>
+        </div>
+    </div>
+</main>
+<div id="tcFooter"></div>
+<script src="/js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    await TC.mountChrome('profile');
+    if (!TC.getUser()) {
+        window.location.href = '/pages/login.html?next=/pages/profile.html';
+        return;
+    }
+    try {
+        const [pf, notifs] = await Promise.all([
+            TC.api('/customer/profile'),
+            TC.api('/notifications?size=5')
+        ]);
+        document.getElementById('pfFirst').value = pf.firstName || '';
+        document.getElementById('pfLast').value = pf.lastName || '';
+        document.getElementById('pfEmail').value = pf.email || '';
+        document.getElementById('pfPhone').value = pf.phone || '';
+        document.getElementById('pfDob').value = pf.dateOfBirth || '';
+        document.getElementById('pfMarketing').checked = !!pf.marketingOptIn;
+
+        const fullName = ((pf.firstName || '') + ' ' + (pf.lastName || '')).trim() || 'Collector';
+        document.getElementById('pfHeaderName').textContent = fullName;
+        document.getElementById('pfAvatarCircle').textContent = fullName.charAt(0).toUpperCase();
+        document.getElementById('pfHeaderMeta').textContent = `${pf.email} · ${pf.emailVerified ? 'Verified Collector' : 'Email Verification Pending'}`;
+        document.getElementById('pfVerifiedBadge').textContent = pf.emailVerified ? 'VERIFIED CLIENT' : 'UNVERIFIED';
+
+        const nh = document.getElementById('notifHost');
+        nh.innerHTML = (notifs.content && notifs.content.length)
+            ? notifs.content.map(n => `
+                <div class="border-bottom pb-2">
+                  <div class="d-flex justify-content-between">
+                    <strong>${TC.escapeHtml(n.title)}</strong>
+                    <span class="text-muted tc-num" style="font-size:11px;">${new Date(n.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <div class="text-muted">${TC.escapeHtml(n.message)}</div>
+                </div>`).join('')
+            : '<div class="text-muted my-auto text-center py-4">No dispatches or notifications yet.</div>';
+    } catch (err) {
+        TC.toast(err.message, 'error');
+    }
+
+    document.getElementById('profileForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        try {
+            const updated = await TC.api('/customer/profile', {
+                method: 'PUT',
+                body: {
+                    firstName: document.getElementById('pfFirst').value,
+                    lastName: document.getElementById('pfLast').value,
+                    phone: document.getElementById('pfPhone').value,
+                    dateOfBirth: document.getElementById('pfDob').value || null,
+                    gender: null,
+                    marketingOptIn: document.getElementById('pfMarketing').checked
+                }
+            });
+            document.getElementById('pfHeaderName').textContent = updated.firstName + ' ' + updated.lastName;
+            TC.toast('Collector profile updated');
+        } catch (err) {
+            TC.toast(err.message, 'error');
+        }
+    });
+
+    document.getElementById('passwordForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        try {
+            const res = await TC.api('/auth/change-password', {
+                method: 'POST',
+                body: {
+                    currentPassword: document.getElementById('curPass').value,
+                    newPassword: document.getElementById('newPass').value
+                }
+            });
+            TC.toast(res.message);
+            e.target.reset();
+        } catch (err) {
+            TC.toast(err.message, 'error');
+        }
+    });
+});
+</script>
+</body>
+</html>

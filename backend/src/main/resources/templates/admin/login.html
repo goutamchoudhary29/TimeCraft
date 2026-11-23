@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Admin Sign In')}"></head>
+<body class="d-flex align-items-center justify-content-center min-vh-100">
+<div class="tc-card" style="width:100%;max-width:420px;padding:2.5rem;">
+    <div class="text-center mb-4">
+        <img src="/images/logo-mark.svg" alt="TimeCraft" style="width:48px;height:48px;" class="mb-2">
+        <div class="serif" style="font-size:1.9rem;letter-spacing:0.12em;text-transform:uppercase;">TimeCraft</div>
+        <div class="text-muted small">Administrator Portal</div>
+    </div>
+    <div th:if="${param.error}" class="alert alert-danger rounded-0 py-2 small">
+        Invalid administrator credentials or account temporarily locked.
+    </div>
+    <div th:if="${param.rateLimited}" class="alert alert-warning rounded-0 py-2 small">
+        Too many login attempts. Please wait a minute before trying again.
+    </div>
+    <div th:if="${param.logout}" class="alert alert-secondary rounded-0 py-2 small">
+        You have been signed out of the Admin Portal.
+    </div>
+    <form th:action="@{/admin/login}" method="post" class="vstack gap-3">
+        <div>
+            <label class="form-label small text-uppercase">Admin Email</label>
+            <input type="email" name="email" class="form-control" required autofocus>
+        </div>
+        <div>
+            <label class="form-label small text-uppercase">Password</label>
+            <input type="password" name="password" class="form-control" required>
+        </div>
+        <button type="submit" class="btn-tc w-100 mt-2">Sign In to Admin Atelier</button>
+    </form>
+    <div class="text-center mt-4 pt-3 border-top">
+        <a href="/" class="small text-muted text-decoration-none">&larr; Return to Customer Storefront</a>
+    </div>
+</div>
+</body>
+</html>

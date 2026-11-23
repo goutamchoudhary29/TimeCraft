@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Audit Logs')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('audit')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Administrative & Security Audit Ledger')}"></header>
+        <main class="tc-content">
+            <div class="tc-card mb-3">
+                <form method="get" action="/admin/audit-logs" class="row g-2">
+                    <div class="col-md-5">
+                        <input type="text" name="search" th:value="${search}" class="form-control" placeholder="Search actor email, entity ID or details">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" name="action" th:value="${action}" class="form-control" placeholder="Action (e.g. PRODUCT_CREATED)">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="entityType" th:value="${entityType}" class="form-control" placeholder="Entity Type">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn-tc w-100">Filter</button>
+                    </div>
+                </form>
+            </div>
+            <div class="tc-card">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Timestamp (UTC)</th>
+                            <th>Actor</th>
+                            <th>Action</th>
+                            <th>Entity</th>
+                            <th>Details</th>
+                            <th>IP</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="a : ${logs.content}">
+                            <td class="small text-muted num" th:text="${#temporals.format(a.createdAt, 'yyyy-MM-dd HH:mm:ss')}">Time</td>
+                            <td class="small" th:text="${a.actorEmail ?: 'system'}">admin</td>
+                            <td><span class="badge-tc" th:text="${a.action}">ACTION</span></td>
+                            <td class="small num" th:text="${(a.entityType ?: '') + (a.entityId != null ? '#' + a.entityId : '')}">ENTITY</td>
+                            <td class="small" th:text="${a.details}">Details</td>
+                            <td class="small text-muted num" th:text="${a.ipAddress ?: '—'}">127.0.0.1</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

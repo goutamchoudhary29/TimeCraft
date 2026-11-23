@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Customer Support')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('support')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Customer Concierge & Support Tickets')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="tc-card">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Ticket #</th>
+                            <th>Customer</th>
+                            <th>Subject / Message</th>
+                            <th>Order #</th>
+                            <th>Status</th>
+                            <th>Concierge Reply</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(tickets.content)}">
+                            <td colspan="6" class="text-center text-muted py-3">No support tickets.</td>
+                        </tr>
+                        <tr th:each="t : ${tickets.content}">
+                            <td class="num fw-semibold" th:text="${t.ticketNumber}">TCK-1</td>
+                            <td>
+                                <div class="fw-medium" th:text="${t.name}">Name</div>
+                                <div class="text-muted small" th:text="${t.email}">email</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold" th:text="${t.subject}">Subject</div>
+                                <div class="text-muted small" th:text="${t.message}">Message</div>
+                            </td>
+                            <td class="num small" th:text="${t.orderNumber ?: '—'}">—</td>
+                            <td><span class="badge-tc" th:text="${t.status}">OPEN</span></td>
+                            <td>
+                                <form th:action="@{'/admin/support/' + ${t.id} + '/reply'}" method="post" class="d-flex gap-1">
+                                    <input type="text" name="reply" th:value="${t.adminReply}" class="form-control form-control-sm" placeholder="Reply note" required>
+                                    <select name="status" class="form-select form-select-sm" style="width:130px;">
+                                        <option value="IN_PROGRESS">IN_PROGRESS</option>
+                                        <option value="RESOLVED" selected>RESOLVED</option>
+                                        <option value="CLOSED">CLOSED</option>
+                                    </select>
+                                    <button type="submit" class="btn-tc btn-sm">Send</button>
+                                </form>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

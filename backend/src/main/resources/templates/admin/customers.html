@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Customer Directory')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('customers')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Customer Management')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="tc-card mb-3">
+                <form method="get" action="/admin/customers" class="row g-2 align-items-center">
+                    <div class="col-md-5">
+                        <input type="text" name="search" th:value="${search}" class="form-control" placeholder="Search by name or email">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="status" class="form-select">
+                            <option value="">All Statuses</option>
+                            <option value="ACTIVE" th:selected="${status?.name() == 'ACTIVE'}">ACTIVE</option>
+                            <option value="DEACTIVATED" th:selected="${status?.name() == 'DEACTIVATED'}">DEACTIVATED</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex gap-2">
+                        <button type="submit" class="btn-tc">Filter</button>
+                        <a href="/admin/customers" class="btn-tc-outline text-decoration-none">Reset</a>
+                    </div>
+                </form>
+            </div>
+            <div class="tc-card">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Customer</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Verified</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(customers.content)}">
+                            <td colspan="8" class="text-center text-muted py-3">No customer records found.</td>
+                        </tr>
+                        <tr th:each="c : ${customers.content}">
+                            <td class="num" th:text="${c.userId}">1</td>
+                            <td class="fw-medium" th:text="${c.firstName} + ' ' + ${c.lastName}">Name</td>
+                            <td th:text="${c.email}">email</td>
+                            <td th:text="${c.phone ?: '—'}">—</td>
+                            <td>
+                                <span th:if="${c.emailVerified}" class="badge bg-success">Verified</span>
+                                <span th:unless="${c.emailVerified}" class="badge-tc">Pending</span>
+                            </td>
+                            <td><span class="badge-tc" th:text="${c.accountStatus}">ACTIVE</span></td>
+                            <td class="small text-muted num" th:text="${#temporals.format(c.createdAt, 'yyyy-MM-dd')}">2026-11-23</td>
+                            <td class="text-end">
+                                <form th:action="@{'/admin/customers/' + ${c.userId} + '/status'}" method="post" class="d-inline">
+                                    <input type="hidden" name="status" th:value="${c.accountStatus.name() == 'ACTIVE' ? 'DEACTIVATED' : 'ACTIVE'}"/>
+                                    <button type="submit" class="btn-tc-outline btn-sm"
+                                            th:text="${c.accountStatus.name() == 'ACTIVE' ? 'Deactivate' : 'Activate'}">Toggle</button>
+                                </form>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

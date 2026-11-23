@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Payment Monitoring')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('payments')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Razorpay Payment Monitoring')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="tc-card">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Razorpay Order ID</th>
+                            <th>Razorpay Payment ID</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th class="text-end">Amount</th>
+                            <th class="text-end">Refunded</th>
+                            <th>Paid At</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(payments.content)}">
+                            <td colspan="8" class="text-center text-muted py-3">No payment attempts recorded yet.</td>
+                        </tr>
+                        <tr th:each="p : ${payments.content}">
+                            <td><a th:href="@{'/admin/orders/' + ${p.orderId}}" class="num fw-semibold text-decoration-none" th:text="${p.orderNumber}">TC-1</a></td>
+                            <td class="num small" th:text="${p.providerOrderId}">order_123</td>
+                            <td class="num small" th:text="${p.providerPaymentId ?: '—'}">pay_123</td>
+                            <td th:text="${p.method ?: 'RAZORPAY'}">RAZORPAY</td>
+                            <td><span class="badge-tc" th:text="${p.status}">CAPTURED</span></td>
+                            <td class="text-end num">₹<span th:text="${p.amount}">0.00</span></td>
+                            <td class="text-end num">₹<span th:text="${p.refundedAmount}">0.00</span></td>
+                            <td class="small text-muted num" th:text="${p.paidAt != null ? #temporals.format(p.paidAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

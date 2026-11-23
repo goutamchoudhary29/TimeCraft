@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Inventory & Stock Ledger')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('inventory')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Variant Inventory & Stock Ledger')}"></header>
+        <main class="tc-content">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+            <div class="row g-3 mb-3">
+                <div class="col-lg-4">
+                    <div class="tc-card">
+                        <h2 class="h5 serif mb-3">Manual Stock Adjustment</h2>
+                        <form th:action="@{/admin/inventory/adjust}" method="post" class="vstack gap-2">
+                            <div>
+                                <label class="form-label small">Variant *</label>
+                                <select name="variantId" class="form-select" required>
+                                    <option th:each="i : ${inventory.content}" th:value="${i.variantId}"
+                                            th:text="${i.variantSku} + ' · ' + ${i.productName} + ' (Avail: ' + ${i.availableQuantity} + ')'"></option>
+                                </select>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small">Movement Type *</label>
+                                    <select name="type" class="form-select">
+                                        <option value="STOCK_IN">STOCK_IN (+)</option>
+                                        <option value="STOCK_OUT">STOCK_OUT (-)</option>
+                                        <option value="ADJUSTMENT">SET ON-HAND (=)</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Quantity *</label>
+                                    <input type="number" min="0" name="quantity" class="form-control" required>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label small">Low-Stock Alert Threshold</label>
+                                <input type="number" min="0" name="lowStockThreshold" class="form-control" placeholder="5">
+                            </div>
+                            <div>
+                                <label class="form-label small">Audit Note</label>
+                                <input type="text" name="note" class="form-control" placeholder="Received shipment from Geneva atelier">
+                            </div>
+                            <button type="submit" class="btn-tc mt-2">Apply Stock Update</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-lg-8">
+                    <div class="tc-card">
+                        <form method="get" action="/admin/inventory" class="d-flex flex-wrap gap-2 mb-3">
+                            <input type="text" name="search" th:value="${search}" class="form-control" style="width:240px;" placeholder="Filter by watch or variant SKU">
+                            <label class="d-flex align-items-center gap-1 small">
+                                <input type="checkbox" name="lowOnly" value="true" th:checked="${lowOnly}"> Low-stock only
+                            </label>
+                            <button type="submit" class="btn-tc">Filter</button>
+                        </form>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                <tr>
+                                    <th>Variant SKU</th>
+                                    <th>Watch / Variant</th>
+                                    <th class="text-end">On Hand</th>
+                                    <th class="text-end">Reserved</th>
+                                    <th class="text-end">Available</th>
+                                    <th class="text-end">Alert</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="i : ${inventory.content}">
+                                    <td class="num fw-semibold" th:text="${i.variantSku}">SKU</td>
+                                    <td>
+                                        <div class="fw-medium" th:text="${i.productName}">Watch</div>
+                                        <div class="text-muted small" th:text="${i.variantName}">Variant</div>
+                                    </td>
+                                    <td class="text-end num" th:text="${i.quantityOnHand}">0</td>
+                                    <td class="text-end num" th:text="${i.quantityReserved}">0</td>
+                                    <td class="text-end num fw-semibold" th:classappend="${i.lowStock} ? 'text-danger'" th:text="${i.availableQuantity}">0</td>
+                                    <td class="text-end num small text-muted" th:text="'≤ ' + ${i.lowStockThreshold}">≤ 5</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tc-card">
+                <h2 class="h5 serif mb-3">Recent Inventory Ledger Transactions</h2>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Variant SKU</th>
+                            <th>Watch</th>
+                            <th>Type</th>
+                            <th class="text-end">Delta</th>
+                            <th class="text-end">On Hand After</th>
+                            <th class="text-end">Reserved After</th>
+                            <th>Note / Actor</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="tx : ${transactions.content}">
+                            <td class="small text-muted num" th:text="${#temporals.format(tx.createdAt, 'yyyy-MM-dd HH:mm')}">Time</td>
+                            <td class="num" th:text="${tx.variantSku}">SKU</td>
+                            <td th:text="${tx.productName}">Watch</td>
+                            <td><span class="badge-tc" th:text="${tx.transactionType}">STOCK_IN</span></td>
+                            <td class="text-end num" th:text="${tx.quantityChange}">+1</td>
+                            <td class="text-end num" th:text="${tx.onHandAfter}">10</td>
+                            <td class="text-end num" th:text="${tx.reservedAfter}">0</td>
+                            <td class="small" th:text="${tx.note} + ' (' + ${tx.performedByEmail} + ')'">Note</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>
