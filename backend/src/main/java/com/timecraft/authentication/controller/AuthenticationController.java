@@ -118,12 +118,25 @@ public class AuthenticationController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/public-config")
+    @Operation(summary = "Return public storefront auth configuration including Google Web Client ID")
+    public ResponseEntity<java.util.Map<String, Object>> publicConfig() {
+        String clientId = authenticationService.resolveGoogleClientId();
+        return ResponseEntity.ok(java.util.Map.of(
+                "googleClientId", clientId,
+                "googleEnabled", !clientId.isBlank()
+        ));
+    }
+
     @GetMapping("/google-config")
-    @Operation(summary = "Return public Google OAuth Client ID and dev quick-login availability")
+    @Operation(summary = "Return public Google OAuth Client ID")
     public ResponseEntity<java.util.Map<String, Object>> googleConfig() {
         String clientId = authenticationService.resolveGoogleClientId();
-        boolean devQuick = properties.google() == null || properties.google().devQuickLoginEnabled();
-        return ResponseEntity.ok(java.util.Map.of("clientId", clientId, "devQuickLoginEnabled", devQuick));
+        return ResponseEntity.ok(java.util.Map.of(
+                "clientId", clientId,
+                "googleClientId", clientId,
+                "googleEnabled", !clientId.isBlank()
+        ));
     }
 
     @PostMapping("/refresh")

@@ -273,6 +273,52 @@ class TimeCraftIntegrationTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\":\"" + rawReset + "\",\"newPassword\":\"NewWatchPass456\"}"))
                 .andExpect(status().isBadRequest());
+
+        // Forgot password for UNREGISTERED email: neutral message, NO reset token created, NO OTP leaked
+        long tokensBefore = resetTokenRepository.count();
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"nobody.unregistered@timecraft.test\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("If an account exists with this email, a reset OTP has been sent."))
+                .andExpect(jsonPath("$.devOtp").doesNotExist());
+        assertThat(resetTokenRepository.count()).isEqualTo(tokensBefore);
+
+        // Reset password for UNREGISTERED email is strictly rejected
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"nobody.unregistered@timecraft.test\",\"otp\":\"123456\",\"newPassword\":\"NewWatchPass789\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_RESET_OTP"));
+
+        // Forgot + Reset password 6-digit OTP flow for registered customer
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("If an account exists with this email, a reset OTP has been sent."));
+        PasswordResetToken activeOtpToken = resetTokenRepository
+                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(user.getId())
+                .orElseThrow();
+        activeOtpToken.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "654321"));
+        resetTokenRepository.save(activeOtpToken);
+
+        // Wrong OTP is rejected
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"otp\":\"000000\",\"newPassword\":\"NewWatchPass789\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_RESET_OTP"));
+
+        // Valid 6-digit OTP succeeds once and cannot be reused
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"otp\":\"654321\",\"newPassword\":\"NewWatchPass789\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"otp\":\"654321\",\"newPassword\":\"NewWatchPass789\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

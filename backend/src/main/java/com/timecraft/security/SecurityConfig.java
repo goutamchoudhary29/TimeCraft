@@ -202,6 +202,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/google",
                                 "/api/v1/auth/google-config",
+                                "/api/v1/auth/public-config",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout",
                                 "/api/v1/auth/verify-email",
@@ -255,7 +256,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(properties.cors().allowedOrigins());
+        var patterns = new java.util.ArrayList<>(properties.cors().allowedOrigins());
+        patterns.add("http://localhost:*");
+        patterns.add("https://*.lhr.life");
+        patterns.add("https://*.trycloudflare.com");
+        patterns.add("https://*.devtunnels.ms");
+        config.setAllowedOriginPatterns(patterns);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Guest-Token", "X-Idempotency-Key", "X-XSRF-TOKEN"));
         config.setExposedHeaders(List.of("X-Guest-Token"));

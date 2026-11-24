@@ -18,6 +18,7 @@ SET "MAIL_PORT=587"
 SET "MAIL_USERNAME=supporttimecraft@gmail.com"
 SET "MAIL_PASSWORD=ocfzvcvyyasksviv"
 SET "MAIL_FROM=TimeCraft <supporttimecraft@gmail.com>"
+SET "GOOGLE_CLIENT_ID=263474811007-grk5gdki78eccru0olsjcmcjp4agcf6b.apps.googleusercontent.com"
 cd /d "%~dp0"
 echo Starting TimeCraft on http://localhost:8080 (Admin: %ADMIN_EMAIL% / %ADMIN_PASSWORD%)
 call .\mvnw.cmd spring-boot:run %*

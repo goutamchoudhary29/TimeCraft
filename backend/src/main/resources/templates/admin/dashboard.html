@@ -11,14 +11,14 @@
 
             <!-- Primary KPIs -->
             <div class="row g-3 mb-3">
-                <div class="col-6 col-xl-3">
+                <div class="col-12 col-sm-6 col-xl-3">
                     <div class="tc-card h-100">
                         <div class="tc-kpi-label">Total Revenue</div>
                         <div class="tc-kpi-value num">₹<span th:text="${#numbers.formatDecimal(overview.totalRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
                         <div class="small text-muted mt-1">This month: ₹<span th:text="${#numbers.formatDecimal(overview.monthRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
                     </div>
                 </div>
-                <div class="col-6 col-xl-3">
+                <div class="col-12 col-sm-6 col-xl-3">
                     <div class="tc-card h-100">
                         <div class="tc-kpi-label">Total Orders</div>
                         <div class="tc-kpi-value num" th:text="${overview.totalOrders}">0</div>
@@ -27,7 +27,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-6 col-xl-3">
+                <div class="col-12 col-sm-6 col-xl-3">
                     <div class="tc-card h-100">
                         <div class="tc-kpi-label">Watch Catalog</div>
                         <div class="tc-kpi-value num" th:text="${overview.totalProducts}">0</div>
@@ -36,7 +36,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-6 col-xl-3">
+                <div class="col-12 col-sm-6 col-xl-3">
                     <div class="tc-card h-100">
                         <div class="tc-kpi-label">Customers &amp; Queue</div>
                         <div class="tc-kpi-value num" th:text="${overview.totalCustomers}">0</div>
@@ -49,28 +49,28 @@
 
             <!-- Earnings & Selling Breakdown: Day / Week / Month / Year -->
             <div class="row g-3 mb-4">
-                <div class="col-6 col-md-3">
+                <div class="col-12 col-sm-6 col-md-3">
                     <div class="tc-card h-100" style="border-left: 3px solid var(--tc-gold);">
                         <div class="tc-kpi-label">Today's Earnings</div>
                         <div class="fs-4 fw-semibold num mt-1">₹<span th:text="${#numbers.formatDecimal(overview.todayRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
                         <div class="small text-muted num"><span th:text="${overview.todayOrders}">0</span> order(s) today</div>
                     </div>
                 </div>
-                <div class="col-6 col-md-3">
+                <div class="col-12 col-sm-6 col-md-3">
                     <div class="tc-card h-100" style="border-left: 3px solid var(--tc-charcoal);">
                         <div class="tc-kpi-label">Last 7 Days</div>
                         <div class="fs-4 fw-semibold num mt-1">₹<span th:text="${#numbers.formatDecimal(overview.weekRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
                         <div class="small text-muted num"><span th:text="${overview.weekOrders}">0</span> order(s) this week</div>
                     </div>
                 </div>
-                <div class="col-6 col-md-3">
+                <div class="col-12 col-sm-6 col-md-3">
                     <div class="tc-card h-100" style="border-left: 3px solid var(--tc-gold);">
                         <div class="tc-kpi-label">This Month</div>
                         <div class="fs-4 fw-semibold num mt-1">₹<span th:text="${#numbers.formatDecimal(overview.monthRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>
                         <div class="small text-muted num"><span th:text="${overview.monthOrders}">0</span> order(s) this month</div>
                     </div>
                 </div>
-                <div class="col-6 col-md-3">
+                <div class="col-12 col-sm-6 col-md-3">
                     <div class="tc-card h-100" style="border-left: 3px solid var(--tc-charcoal);">
                         <div class="tc-kpi-label">This Year (YTD)</div>
                         <div class="fs-4 fw-semibold num mt-1">₹<span th:text="${#numbers.formatDecimal(overview.yearRevenue,1,'COMMA',2,'POINT')}">0.00</span></div>

@@ -776,8 +776,11 @@
             </div>
             <header class="tc-navbar">
               <div class="container tc-header-grid">
-                <!-- Left Column: Primary Navigation -->
+                <!-- Left Column: Primary Navigation + Mobile Menu Trigger -->
                 <nav class="tc-header-left" aria-label="Primary Navigation">
+                  <button type="button" class="tc-icon-btn d-lg-none" onclick="TC.openMobileNav()" aria-label="Open Menu" title="Menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/></svg>
+                  </button>
                   <a href="/pages/shop.html" class="tc-nav-link ${activeNav === 'shop' ? 'active' : ''}">Watches</a>
                   <a href="/pages/brands.html" class="tc-nav-link ${activeNav === 'brands' ? 'active' : ''}">Maisons</a>
                   <a href="/pages/category.html?slug=dive" class="tc-nav-link tc-desktop-nav ${activeNav === 'dive' ? 'active' : ''}">Dive</a>
@@ -796,23 +799,23 @@
 
                 <!-- Right Column: Compact Action Icons -->
                 <div class="tc-header-right">
-                  <button type="button" class="tc-icon-btn" onclick="TC.openSearchOverlay()" title="Instant Search">
+                  <button type="button" class="tc-icon-btn" onclick="TC.openSearchOverlay()" title="Instant Search" aria-label="Search">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5" stroke-linecap="round"/></svg>
                     <span class="tc-icon-label">Search</span>
                   </button>
-                  <a href="/pages/compare.html" class="tc-icon-btn ${activeNav === 'compare' ? 'active' : ''}" title="Compare Watches">
+                  <a href="/pages/compare.html" class="tc-icon-btn d-none d-sm-inline-flex ${activeNav === 'compare' ? 'active' : ''}" title="Compare Watches">
                     <span>⇄</span>
                     <span class="tc-badge-count" id="tcCompareCount">0</span>
                   </a>
-                  <a href="/pages/wishlist.html" class="tc-icon-btn ${activeNav === 'wishlist' ? 'active' : ''}" title="Wishlist">
+                  <a href="/pages/wishlist.html" class="tc-icon-btn d-none d-sm-inline-flex ${activeNav === 'wishlist' ? 'active' : ''}" title="Wishlist">
                     <span>♥</span>
                     <span class="tc-badge-count" id="tcWishlistCount">0</span>
                   </a>
-                  <a href="${user ? '/pages/profile.html' : '/pages/login.html'}" class="tc-icon-btn ${activeNav === 'profile' ? 'active' : ''}" title="Account">
+                  <a href="${user ? '/pages/profile.html' : '/pages/login.html'}" class="tc-icon-btn ${activeNav === 'profile' ? 'active' : ''}" title="Account" aria-label="Account">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.8-3.5 5-5 8-5s6.2 1.5 8 5" stroke-linecap="round"/></svg>
                     <span class="tc-icon-label">${user ? escapeHtml(user.firstName) : 'Account'}</span>
                   </a>
-                  <button type="button" class="tc-icon-btn tc-bag-trigger" onclick="TC.openBagDrawer()" title="Open Shopping Bag">
+                  <button type="button" class="tc-icon-btn tc-bag-trigger" onclick="TC.openBagDrawer()" title="Open Shopping Bag" aria-label="Shopping Bag">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>
                     <span class="tc-icon-label">Bag</span>
                     <span class="tc-badge-count" id="tcCartCount">0</span>
@@ -951,9 +954,10 @@
     async function mountGoogleAuthButton(hostId, redirectUrl = '/pages/profile.html') {
         const host = document.getElementById(hostId);
         if (!host) return;
-        let gConfig = { clientId: '', devQuickLoginEnabled: true };
+        let googleClientId = '';
         try {
-            gConfig = await api('/auth/google-config');
+            const cfg = await api('/auth/public-config');
+            googleClientId = (cfg && (cfg.googleClientId || cfg.clientId) || '').trim();
         } catch {}
 
         host.innerHTML = `
@@ -963,129 +967,98 @@
           </button>`;
 
         document.getElementById(hostId + '_btn').addEventListener('click', async () => {
-            const clientId = (gConfig.clientId && gConfig.clientId.trim())
-                || (localStorage.getItem('tc_google_client_id') || '').trim();
-            if (clientId) {
-                try {
-                    await loadGoogleGsiScript();
-                    const tokenClient = window.google.accounts.oauth2.initTokenClient({
-                        client_id: clientId,
-                        scope: 'openid email profile',
-                        prompt: 'select_account',
-                        callback: async (tokenResponse) => {
-                            if (tokenResponse && tokenResponse.access_token) {
-                                try {
-                                    const authData = await api('/auth/google', {
-                                        method: 'POST',
-                                        body: { credential: tokenResponse.access_token }
-                                    });
-                                    setAuthSession(authData);
-                                    toast('Signed in with Google as ' + authData.user.email);
-                                    window.location.href = redirectUrl;
-                                } catch (err) {
-                                    toast(err.message, 'error');
-                                }
-                            }
-                        }
-                    });
-                    tokenClient.requestAccessToken();
-                    return;
-                } catch (err) {
-                    toast(err.message, 'error');
-                }
+            if (!googleClientId) {
+                toast('Google Sign-In is currently unavailable. Please sign in with your email and password.', 'error');
+                return;
             }
-            openGoogleAccountPickerModal(redirectUrl);
-        });
-    }
-
-    function openGoogleAccountPickerModal(redirectUrl) {
-        const existing = document.getElementById('tcGoogleModal');
-        if (existing) existing.remove();
-
-        const wrap = document.createElement('div');
-        wrap.id = 'tcGoogleModal';
-        wrap.className = 'tc-google-modal-backdrop';
-        wrap.innerHTML = `
-          <div class="tc-google-modal" style="max-width:460px;">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-              <div class="d-flex align-items-center gap-2">
-                ${GOOGLE_G_SVG}
-                <span class="fw-semibold small text-uppercase" style="letter-spacing:0.08em;">Google OAuth 2.0 Sign-In</span>
-              </div>
-              <button type="button" class="btn-close" id="tcGoogleClose"></button>
-            </div>
-            <div class="p-3 mb-3" style="background:var(--tc-stone);border:1px solid var(--tc-border);border-radius:3px;">
-              <div class="fw-semibold small mb-1">Connect Real Google Account Popup</div>
-              <p class="text-muted mb-2" style="font-size:12px;">
-                Paste your Google OAuth 2.0 Web Client ID (with Authorized JavaScript Origin <code>http://localhost:8080</code>) to launch the live <strong>accounts.google.com</strong> browser chooser:
-              </p>
-              <form id="tcSaveGoogleClientIdForm" class="d-flex gap-2">
-                <input type="text" id="gClientIdInput" class="form-control form-control-sm"
-                       placeholder="xxxx.apps.googleusercontent.com"
-                       value="${escapeHtml(localStorage.getItem('tc_google_client_id') || '')}" required>
-                <button type="submit" class="btn-tc-primary py-1 px-3">Launch</button>
-              </form>
-            </div>
-            <div class="tc-divider">or sign in immediately (Local Dev Mode)</div>
-            <form id="tcGoogleCustomForm" class="vstack gap-2">
-              <div class="row g-2">
-                <div class="col-6"><input type="text" id="gCustomFirst" class="form-control form-control-sm" placeholder="First Name" required></div>
-                <div class="col-6"><input type="text" id="gCustomLast" class="form-control form-control-sm" placeholder="Last Name" required></div>
-              </div>
-              <input type="email" id="gCustomEmail" class="form-control form-control-sm" placeholder="Enter your Gmail address (e.g. you@gmail.com)" required>
-              <button type="submit" class="btn-tc-primary w-100 mt-1">Continue with This Gmail</button>
-            </form>
-          </div>`;
-        document.body.appendChild(wrap);
-
-        const completeGoogleSignIn = async (email, firstName, lastName) => {
-            try {
-                const authData = await api('/auth/google', { method: 'POST', body: { email, firstName, lastName } });
-                setAuthSession(authData);
-                wrap.remove();
-                toast('Welcome, ' + authData.user.firstName);
-                window.location.href = redirectUrl;
-            } catch (err) {
-                toast(err.message, 'error');
-            }
-        };
-
-        document.getElementById('tcGoogleClose').addEventListener('click', () => wrap.remove());
-        wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
-        document.getElementById('tcSaveGoogleClientIdForm').addEventListener('submit', async e => {
-            e.preventDefault();
-            const cid = document.getElementById('gClientIdInput').value.trim();
-            if (!cid) return;
-            localStorage.setItem('tc_google_client_id', cid);
-            wrap.remove();
             try {
                 await loadGoogleGsiScript();
                 const tokenClient = window.google.accounts.oauth2.initTokenClient({
-                    client_id: cid,
+                    client_id: googleClientId,
                     scope: 'openid email profile',
                     prompt: 'select_account',
+                    error_callback: (err) => {
+                        const msg = err && err.type === 'popup_closed'
+                            ? 'Google sign-in popup was closed.'
+                            : 'Google Sign-In was blocked for this domain (' + window.location.origin + '). Please add this origin in Google Cloud Console or sign in with email & password.';
+                        toast(msg, 'error');
+                    },
                     callback: async (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.error) {
+                            toast('Google Sign-In failed: ' + tokenResponse.error, 'error');
+                            return;
+                        }
                         if (tokenResponse && tokenResponse.access_token) {
-                            const authData = await api('/auth/google', { method: 'POST', body: { credential: tokenResponse.access_token } });
-                            setAuthSession(authData);
-                            toast('Signed in with Google as ' + authData.user.email);
-                            window.location.href = redirectUrl;
+                            try {
+                                const authData = await api('/auth/google', {
+                                    method: 'POST',
+                                    body: { credential: tokenResponse.access_token }
+                                });
+                                setAuthSession(authData);
+                                toast('Signed in with Google as ' + authData.user.email);
+                                window.location.href = redirectUrl;
+                            } catch (err) {
+                                toast(err.message, 'error');
+                            }
                         }
                     }
                 });
                 tokenClient.requestAccessToken();
             } catch (err) {
-                toast(err.message, 'error');
+                toast('Google Sign-In is currently unavailable. Please sign in with your email and password.', 'error');
             }
         });
-        document.getElementById('tcGoogleCustomForm').addEventListener('submit', e => {
-            e.preventDefault();
-            completeGoogleSignIn(
-                document.getElementById('gCustomEmail').value,
-                document.getElementById('gCustomFirst').value,
-                document.getElementById('gCustomLast').value
-            );
+    }
+
+    function openMobileNav() {
+        let backdrop = document.getElementById('tcMobileNavBackdrop');
+        let drawer = document.getElementById('tcMobileNavDrawer');
+        if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.id = 'tcMobileNavBackdrop';
+            backdrop.className = 'tc-overlay-backdrop';
+            backdrop.addEventListener('click', closeMobileNav);
+            document.body.appendChild(backdrop);
+        }
+        if (!drawer) {
+            const user = getUser();
+            drawer = document.createElement('aside');
+            drawer.id = 'tcMobileNavDrawer';
+            drawer.className = 'tc-drawer tc-drawer-left';
+            drawer.style.maxWidth = '310px';
+            drawer.innerHTML = `
+              <div class="tc-drawer-header">
+                <a href="/index.html" class="tc-logo" style="font-size:20px;">
+                  <img src="/images/logo-mark.svg" alt="TimeCraft" class="tc-logo-mark" style="width:24px;height:24px;">
+                  <span>TimeCraft</span>
+                </a>
+                <button type="button" class="btn-close" aria-label="Close Menu" onclick="TC.closeMobileNav()"></button>
+              </div>
+              <div class="tc-drawer-body">
+                <nav class="vstack">
+                  <a href="/pages/shop.html" class="tc-mobile-nav-link"><span>Shop All Watches</span><span>&rarr;</span></a>
+                  <a href="/pages/brands.html" class="tc-mobile-nav-link"><span>Watch Maisons</span><span>&rarr;</span></a>
+                  <a href="/pages/category.html?slug=dive" class="tc-mobile-nav-link"><span>Dive Watches</span><span>&rarr;</span></a>
+                  <a href="/pages/category.html?slug=chronograph" class="tc-mobile-nav-link"><span>Chronographs</span><span>&rarr;</span></a>
+                  <a href="/pages/category.html?slug=dress" class="tc-mobile-nav-link"><span>Dress Watches</span><span>&rarr;</span></a>
+                  <a href="/pages/about.html" class="tc-mobile-nav-link"><span>Our Maison</span><span>&rarr;</span></a>
+                  <a href="/pages/wishlist.html" class="tc-mobile-nav-link"><span>Wishlist</span><span>♥</span></a>
+                  <a href="/pages/compare.html" class="tc-mobile-nav-link"><span>Compare Timepieces</span><span>⇄</span></a>
+                  <a href="${user ? '/pages/profile.html' : '/pages/login.html'}" class="tc-mobile-nav-link"><span>${user ? escapeHtml(user.firstName) + ' · Account' : 'Sign In / Register'}</span><span>&rarr;</span></a>
+                  <a href="/admin/login" class="tc-mobile-nav-link text-muted"><span>Admin Atelier</span><span>&rarr;</span></a>
+                </nav>
+              </div>`;
+            document.body.appendChild(drawer);
+        }
+        requestAnimationFrame(() => {
+            backdrop.classList.add('open');
+            drawer.classList.add('open');
         });
+    }
+
+    function closeMobileNav() {
+        document.getElementById('tcMobileNavBackdrop')?.classList.remove('open');
+        document.getElementById('tcMobileNavDrawer')?.classList.remove('open');
     }
 
     window.TC = {
@@ -1106,6 +1079,8 @@
         closeSearchOverlay,
         openBagDrawer,
         closeBagDrawer,
+        openMobileNav,
+        closeMobileNav,
         drawerUpdateQty,
         drawerRemoveItem,
         recordRecentlyViewed,

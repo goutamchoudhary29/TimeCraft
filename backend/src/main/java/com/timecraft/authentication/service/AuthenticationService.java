@@ -75,6 +75,9 @@ public class AuthenticationService {
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
 
+    @org.springframework.beans.factory.annotation.Value("${timecraft.security.google.client-id:}")
+    private String timecraftGoogleClientId;
+
     @Transactional
     public RegisterOtpResponse register(RegisterRequest request, HttpServletRequest httpRequest) {
         String email = request.email().trim().toLowerCase();
@@ -228,24 +231,15 @@ public class AuthenticationService {
 
     @Transactional
     public AuthTokenResponse loginWithGoogle(GoogleLoginRequest request, HttpServletRequest httpRequest) {
-        String email;
-        String firstName;
-        String lastName;
-
-        if (request.credential() != null && !request.credential().isBlank()) {
-            var verified = verifyGoogleIdToken(request.credential().trim());
-            email = verified.email();
-            firstName = verified.firstName();
-            lastName = verified.lastName();
-        } else if (properties.google() != null && properties.google().devQuickLoginEnabled()
-                && request.email() != null && !request.email().isBlank()) {
-            email = request.email().trim().toLowerCase();
-            firstName = request.firstName() != null && !request.firstName().isBlank() ? request.firstName().trim() : "Collector";
-            lastName = request.lastName() != null && !request.lastName().isBlank() ? request.lastName().trim() : "Google";
-        } else {
+        if (request.credential() == null || request.credential().isBlank()) {
             throw BusinessException.badRequest("GOOGLE_TOKEN_REQUIRED",
-                    "Google ID credential token is required");
+                    "Google authentication credential is required");
         }
+
+        var verified = verifyGoogleIdToken(request.credential().trim());
+        String email = verified.email();
+        String firstName = verified.firstName();
+        String lastName = verified.lastName();
 
         Role customerRole = roleRepository.findByName(RoleName.CUSTOMER)
                 .orElseThrow(() -> new IllegalStateException("CUSTOMER role not initialized"));
@@ -314,9 +308,19 @@ public class AuthenticationService {
             }
             var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(res.body());
             String configuredClientId = resolveGoogleClientId();
-            if (isJwt && configuredClientId != null && !configuredClientId.isBlank()
-                    && !configuredClientId.equals(node.path("aud").asText())) {
-                throw BusinessException.unauthorized("GOOGLE_AUDIENCE_MISMATCH", "Google token audience mismatch");
+            if (isJwt) {
+                String iss = node.path("iss").asText("");
+                if (!"accounts.google.com".equals(iss) && !"https://accounts.google.com".equals(iss)) {
+                    throw BusinessException.unauthorized("GOOGLE_ISSUER_INVALID", "Invalid Google token issuer");
+                }
+                long exp = node.path("exp").asLong(0L);
+                if (exp > 0 && Instant.ofEpochSecond(exp).isBefore(Instant.now())) {
+                    throw BusinessException.unauthorized("GOOGLE_TOKEN_EXPIRED", "Google ID token has expired");
+                }
+                if (configuredClientId != null && !configuredClientId.isBlank()
+                        && !configuredClientId.equals(node.path("aud").asText())) {
+                    throw BusinessException.unauthorized("GOOGLE_AUDIENCE_MISMATCH", "Google token audience mismatch");
+                }
             }
             String email = node.path("email").asText("").trim().toLowerCase();
             if (email.isBlank()) {
@@ -333,6 +337,9 @@ public class AuthenticationService {
     }
 
     public String resolveGoogleClientId() {
+        if (timecraftGoogleClientId != null && !timecraftGoogleClientId.isBlank()) {
+            return timecraftGoogleClientId.trim();
+        }
         String envId = properties.google() != null ? properties.google().clientId() : null;
         if (envId != null && !envId.isBlank()) {
             return envId.trim();
@@ -429,18 +436,19 @@ public class AuthenticationService {
         resendRegistrationOtp(email);
     }
 
+    private static final String NEUTRAL_RESET_MESSAGE =
+            "If an account exists with this email, a reset OTP has been sent.";
+
     @Transactional
     public RegisterOtpResponse requestPasswordReset(ForgotPasswordRequest request) {
         String normalized = request.email().trim().toLowerCase();
         var userOpt = userRepository.findByEmailIgnoreCase(normalized);
         if (userOpt.isEmpty()) {
-            return new RegisterOtpResponse(normalized, true, false, null,
-                    "If an account exists for that email, a 6-digit password reset code has been sent.");
+            return new RegisterOtpResponse(normalized, true, true, null, NEUTRAL_RESET_MESSAGE);
         }
         User user = userOpt.get();
         if (user.getAccountStatus() != AccountStatus.ACTIVE || !user.hasRole(RoleName.CUSTOMER)) {
-            return new RegisterOtpResponse(normalized, true, false, null,
-                    "If an account exists for that email, a 6-digit password reset code has been sent.");
+            return new RegisterOtpResponse(normalized, true, true, null, NEUTRAL_RESET_MESSAGE);
         }
 
         Instant now = Instant.now();
@@ -467,10 +475,7 @@ public class AuthenticationService {
         passwordResetTokenRepository.save(token);
         boolean delivered = notificationService.sendPasswordResetOtpEmail(user, otp);
         String devOtp = (!delivered && properties.mail().logLinks()) ? otp : null;
-        String msg = delivered
-                ? "A 6-digit password reset code has been sent to your email."
-                : "Password reset OTP generated (local dev mode).";
-        return new RegisterOtpResponse(normalized, true, delivered, devOtp, msg);
+        return new RegisterOtpResponse(normalized, true, delivered, devOtp, NEUTRAL_RESET_MESSAGE);
     }
 
     @Transactional(noRollbackFor = BusinessException.class)
@@ -478,13 +483,26 @@ public class AuthenticationService {
         PasswordResetToken token;
         if (request.email() != null && !request.email().isBlank() && request.otp() != null && !request.otp().isBlank()) {
             String normalized = request.email().trim().toLowerCase();
+            String otpValue = request.otp().trim();
+            if (!otpValue.matches("^\\d{6}$")) {
+                throw BusinessException.badRequest("INVALID_RESET_OTP",
+                        "Please enter a valid 6-digit password reset OTP.");
+            }
             User user = userRepository.findByEmailIgnoreCase(normalized)
-                    .orElseThrow(() -> BusinessException.badRequest("INVALID_RESET_OTP", "Invalid email or reset code"));
+                    .orElseThrow(() -> BusinessException.badRequest("INVALID_RESET_OTP",
+                            "Invalid email or password reset OTP."));
+            if (user.getAccountStatus() != AccountStatus.ACTIVE || !user.hasRole(RoleName.CUSTOMER)) {
+                throw BusinessException.badRequest("INVALID_RESET_OTP",
+                        "Invalid email or password reset OTP.");
+            }
             token = passwordResetTokenRepository.findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(user.getId())
                     .orElseThrow(() -> BusinessException.badRequest("INVALID_RESET_OTP",
                             "No active password reset code found. Please request a new code."));
             if (!token.isUsable()) {
-                throw BusinessException.badRequest("RESET_OTP_EXPIRED", "Password reset code has expired");
+                token.setUsedAt(Instant.now());
+                passwordResetTokenRepository.save(token);
+                throw BusinessException.badRequest("RESET_OTP_EXPIRED",
+                        "Password reset code has expired. Please request a new code.");
             }
             if (token.getAttemptCount() >= MAX_OTP_ATTEMPTS) {
                 token.setUsedAt(Instant.now());
@@ -492,7 +510,7 @@ public class AuthenticationService {
                 throw BusinessException.badRequest("RESET_OTP_MAX_ATTEMPTS",
                         "Maximum attempts exceeded. Please request a new reset code.");
             }
-            String candidateHash = hashOtp(normalized, request.otp().trim());
+            String candidateHash = hashOtp(normalized, otpValue);
             if (!MessageDigest.isEqual(candidateHash.getBytes(StandardCharsets.UTF_8),
                     token.getTokenHash().getBytes(StandardCharsets.UTF_8))) {
                 token.setAttemptCount(token.getAttemptCount() + 1);
@@ -500,7 +518,8 @@ public class AuthenticationService {
                     token.setUsedAt(Instant.now());
                 }
                 passwordResetTokenRepository.save(token);
-                throw BusinessException.badRequest("INVALID_RESET_OTP", "Incorrect password reset code");
+                throw BusinessException.badRequest("INVALID_RESET_OTP",
+                        "Incorrect password reset OTP. Please check the 6-digit code and try again.");
             }
         } else if (request.token() != null && !request.token().isBlank()) {
             String hash = TokenUtils.sha256(request.token().trim());
@@ -510,6 +529,11 @@ public class AuthenticationService {
             if (!token.isUsable()) {
                 throw BusinessException.badRequest("RESET_TOKEN_EXPIRED",
                         "This password reset link has expired or has already been used");
+            }
+            User tokenUser = token.getUser();
+            if (tokenUser == null || tokenUser.getAccountStatus() != AccountStatus.ACTIVE || !tokenUser.hasRole(RoleName.CUSTOMER)) {
+                throw BusinessException.badRequest("INVALID_RESET_TOKEN",
+                        "Invalid or expired password reset link");
             }
         } else {
             throw BusinessException.badRequest("RESET_CODE_REQUIRED", "Email and 6-digit OTP are required");

@@ -167,6 +167,7 @@
                     countEl.textContent = `${data.totalElements} timepiece${data.totalElements === 1 ? '' : 's'}`;
                 }
                 if (!data.content || data.content.length === 0) {
+                    gridEl.className = 'row g-4';
                     gridEl.innerHTML = `
                     <div class="col-12">
                       <div class="tc-panel text-center py-5">
@@ -176,7 +177,8 @@
                       </div>
                     </div>`;
                 } else {
-                    gridEl.innerHTML = data.content.map(TC.renderWatchCard).join('');
+                    gridEl.className = 'tc-product-grid tc-catalog-grid';
+                    gridEl.innerHTML = data.content.map(p => TC.renderWatchCard(p, { bare: true })).join('');
                     TC.initScrollAnimations();
                 }
                 if (pagerEl) renderPagination(pagerEl, data, loadPage);

@@ -75,6 +75,7 @@ spring:
 
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: native
   error:
     include-stacktrace: never
     include-message: never
@@ -134,7 +135,12 @@ app:
     auth-window: 1m
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
-    dev-quick-login-enabled: ${GOOGLE_DEV_QUICK_LOGIN:true}
+    dev-quick-login-enabled: ${GOOGLE_DEV_QUICK_LOGIN:false}
+
+timecraft:
+  security:
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
 
 management:
   endpoints:
