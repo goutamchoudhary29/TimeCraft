@@ -7,10 +7,13 @@ import com.timecraft.authentication.dto.AuthDtos.ForgotPasswordRequest;
 import com.timecraft.authentication.dto.AuthDtos.GoogleLoginRequest;
 import com.timecraft.authentication.dto.AuthDtos.LoginRequest;
 import com.timecraft.authentication.dto.AuthDtos.RefreshRequest;
+import com.timecraft.authentication.dto.AuthDtos.RegisterOtpResponse;
 import com.timecraft.authentication.dto.AuthDtos.RegisterRequest;
+import com.timecraft.authentication.dto.AuthDtos.ResendOtpRequest;
 import com.timecraft.authentication.dto.AuthDtos.ResendVerificationRequest;
 import com.timecraft.authentication.dto.AuthDtos.ResetPasswordRequest;
 import com.timecraft.authentication.dto.AuthDtos.VerifyEmailRequest;
+import com.timecraft.authentication.dto.AuthDtos.VerifyOtpRequest;
 import com.timecraft.authentication.service.AuthenticationService;
 import com.timecraft.cart.service.CartService;
 import com.timecraft.common.dto.MessageResponse;
@@ -52,19 +55,35 @@ public class AuthenticationController {
     private final AppProperties properties;
 
     @PostMapping("/register")
-    @Operation(summary = "Register a new CUSTOMER account")
-    public ResponseEntity<AuthTokenResponse> register(
+    @Operation(summary = "Register a new CUSTOMER account and send 6-digit email OTP")
+    public ResponseEntity<RegisterOtpResponse> register(
             @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        RegisterOtpResponse response = authenticationService.register(request, httpRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/verify-otp")
+    @Operation(summary = "Verify 6-digit email OTP, activate account, merge guest cart and issue JWT tokens")
+    public ResponseEntity<AuthTokenResponse> verifyOtp(
+            @Valid @RequestBody VerifyOtpRequest request,
             @RequestHeader(value = "X-Guest-Token", required = false) String guestToken,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse
     ) {
-        AuthTokenResponse response = authenticationService.register(request, httpRequest);
+        AuthTokenResponse response = authenticationService.verifyRegistrationOtp(request, httpRequest);
         if (guestToken != null && !guestToken.isBlank()) {
             cartService.mergeGuestCartIntoUserCart(guestToken, response.user().id());
         }
         writeRefreshCookie(httpResponse, response.refreshToken(), properties.jwt().refreshTokenTtl());
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/resend-otp")
+    @Operation(summary = "Resend 6-digit email verification OTP with 60-second cooldown")
+    public ResponseEntity<RegisterOtpResponse> resendOtp(@Valid @RequestBody ResendOtpRequest request) {
+        return ResponseEntity.ok(authenticationService.resendRegistrationOtp(request.email()));
     }
 
     @PostMapping("/login")
@@ -160,10 +179,9 @@ public class AuthenticationController {
     }
 
     @PostMapping("/forgot-password")
-    @Operation(summary = "Request a password reset email")
-    public ResponseEntity<MessageResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        authenticationService.requestPasswordReset(request);
-        return ResponseEntity.ok(MessageResponse.of("If an account exists for that email, a password reset link has been sent"));
+    @Operation(summary = "Request a 6-digit password reset OTP via email")
+    public ResponseEntity<RegisterOtpResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return ResponseEntity.ok(authenticationService.requestPasswordReset(request));
     }
 
     @PostMapping("/reset-password")

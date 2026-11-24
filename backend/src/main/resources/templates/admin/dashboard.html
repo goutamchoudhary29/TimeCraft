@@ -129,30 +129,45 @@
                 </div>
             </div>
 
-            <!-- Top Selling Watches & Top Maisons Charts -->
+            <!-- Top Selling Watches, Top Maisons & Payment Method Breakdown Charts -->
             <div class="row g-3 mb-4">
-                <div class="col-lg-6">
+                <div class="col-lg-4">
                     <div class="tc-card h-100">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h2 class="h5 mb-0 serif">Top-Selling Watches (YTD Revenue)</h2>
-                            <a href="/admin/reports" class="small text-decoration-none">Full Reports &rarr;</a>
+                            <h2 class="h5 mb-0 serif">Payment Method Split</h2>
+                            <span class="small text-muted">Razorpay vs COD</span>
+                        </div>
+                        <div style="position: relative; height: 220px;">
+                            <canvas id="paymentMethodChart"></canvas>
+                        </div>
+                        <div class="d-flex justify-content-around text-center small border-top pt-2 mt-2 num">
+                            <div><div class="text-muted">Razorpay</div><strong th:text="${overview.razorpayOrders}">0</strong></div>
+                            <div><div class="text-muted">Cash on Delivery</div><strong th:text="${overview.codOrders}">0</strong></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="tc-card h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h5 mb-0 serif">Top-Selling Watches (YTD)</h2>
+                            <a href="/admin/reports" class="small text-decoration-none">Reports &rarr;</a>
                         </div>
                         <div th:if="${#lists.isEmpty(overview.bestSellingWatches)}" class="text-muted small py-4 text-center">
-                            Sales chart will populate automatically as orders are placed and paid.
+                            Sales chart populates as orders are placed.
                         </div>
                         <div th:unless="${#lists.isEmpty(overview.bestSellingWatches)}" style="position: relative; height: 240px;">
                             <canvas id="topWatchesChart"></canvas>
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-6">
+                <div class="col-lg-4">
                     <div class="tc-card h-100">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h2 class="h5 mb-0 serif">Top Maisons / Brands (YTD Revenue)</h2>
+                            <h2 class="h5 mb-0 serif">Top Maisons (YTD)</h2>
                             <a href="/admin/brands" class="small text-decoration-none">Maisons &rarr;</a>
                         </div>
                         <div th:if="${#lists.isEmpty(overview.topBrandsYtd)}" class="text-muted small py-4 text-center">
-                            Maison revenue breakdown will appear as watch orders are completed.
+                            Maison revenue appears as orders complete.
                         </div>
                         <div th:unless="${#lists.isEmpty(overview.topBrandsYtd)}" style="position: relative; height: 240px;">
                             <canvas id="topBrandsChart"></canvas>
@@ -282,6 +297,10 @@
             pending: /*[[${overview.pendingOrders}]]*/ 0,
             completed: /*[[${overview.completedOrders}]]*/ 0,
             cancelled: /*[[${overview.cancelledOrders}]]*/ 0
+        };
+        const paymentSplit = {
+            razorpay: /*[[${overview.razorpayOrders}]]*/ 0,
+            cod: /*[[${overview.codOrders}]]*/ 0
         };
 
         const fmtINR = (v) => '₹' + Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -451,6 +470,33 @@
                             enabled: totalMix > 0,
                             backgroundColor: '#1A1A1A'
                         }
+                    }
+                }
+            });
+        }
+
+        // 2b. Payment Method Breakdown (Razorpay vs COD)
+        const ctxPay = document.getElementById('paymentMethodChart');
+        if (ctxPay) {
+            const totalPay = paymentSplit.razorpay + paymentSplit.cod;
+            new Chart(ctxPay, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Razorpay (UPI/QR/Card)', 'Cash on Delivery (COD)'],
+                    datasets: [{
+                        data: totalPay > 0 ? [paymentSplit.razorpay, paymentSplit.cod] : [1, 0],
+                        backgroundColor: totalPay > 0 ? ['#1A1A1A', '#B08D57'] : ['#E5E2DC', '#E5E2DC'],
+                        borderWidth: 2,
+                        borderColor: '#FFFFFF'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '64%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10 } },
+                        tooltip: { enabled: totalPay > 0, backgroundColor: '#1A1A1A' }
                     }
                 }
             });

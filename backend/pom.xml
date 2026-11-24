@@ -114,6 +114,13 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- Payments (Razorpay Official Java SDK) -->
+        <dependency>
+            <groupId>com.razorpay</groupId>
+            <artifactId>razorpay-java</artifactId>
+            <version>1.4.6</version>
+        </dependency>
+
         <!-- PDF invoices -->
         <dependency>
             <groupId>com.github.librepdf</groupId>

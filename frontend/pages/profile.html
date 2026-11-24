@@ -28,6 +28,20 @@
         </div>
     </div>
 
+    <!-- Unverified Email OTP Action Banner -->
+    <div id="pfVerifyBanner" class="tc-panel mb-4 d-none" style="background:#FAF6EE;border-color:#B08D57;border-left:4px solid #B08D57;">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <div class="tc-eyebrow" style="color:#9A7B4F;">Action Required Before Checkout</div>
+                <div class="fw-semibold">Verify your email address to place orders</div>
+                <div class="small text-muted">Click below to receive a 6-digit OTP in your Gmail inbox and activate ordering immediately.</div>
+            </div>
+            <button type="button" id="pfSendOtpBtn" class="btn-tc-primary" style="white-space:nowrap;">
+                Send OTP &amp; Verify Email &rarr;
+            </button>
+        </div>
+    </div>
+
     <!-- Symmetrical 2-Column Equal-Height Grid -->
     <div class="row g-4 align-items-stretch">
         <div class="col-lg-6 d-flex">
@@ -131,7 +145,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('pfHeaderName').textContent = fullName;
         document.getElementById('pfAvatarCircle').textContent = fullName.charAt(0).toUpperCase();
         document.getElementById('pfHeaderMeta').textContent = `${pf.email} · ${pf.emailVerified ? 'Verified Collector' : 'Email Verification Pending'}`;
-        document.getElementById('pfVerifiedBadge').textContent = pf.emailVerified ? 'VERIFIED CLIENT' : 'UNVERIFIED';
+        const badgeEl = document.getElementById('pfVerifiedBadge');
+        badgeEl.textContent = pf.emailVerified ? 'VERIFIED CLIENT' : 'UNVERIFIED';
+        if (pf.emailVerified) {
+            badgeEl.style.background = '#235D3A';
+        } else {
+            const banner = document.getElementById('pfVerifyBanner');
+            if (banner) banner.classList.remove('d-none');
+            const sendBtn = document.getElementById('pfSendOtpBtn');
+            if (sendBtn) {
+                sendBtn.addEventListener('click', async () => {
+                    sendBtn.disabled = true;
+                    sendBtn.textContent = 'Sending 6-Digit OTP…';
+                    try {
+                        const res = await TC.api('/auth/resend-otp', { method: 'POST', body: { email: pf.email } });
+                        if (res && res.devOtp) {
+                            sessionStorage.setItem('tc_dev_otp', res.devOtp);
+                        } else {
+                            sessionStorage.removeItem('tc_dev_otp');
+                        }
+                        TC.toast((res && res.message) || '6-digit OTP sent to your email!');
+                        window.location.href = '/verify-otp?email=' + encodeURIComponent(pf.email);
+                    } catch (otpErr) {
+                        sendBtn.disabled = false;
+                        sendBtn.textContent = 'Send OTP & Verify Email →';
+                        TC.toast(otpErr.message, 'error');
+                    }
+                });
+            }
+        }
 
         const nh = document.getElementById('notifHost');
         nh.innerHTML = (notifs.content && notifs.content.length)

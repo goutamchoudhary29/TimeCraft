@@ -283,7 +283,7 @@
         }
     }
 
-    function renderWatchCard(p) {
+    function renderWatchCard(p, options = {}) {
         const outOfStock = (p.totalAvailableStock || 0) <= 0;
         const hasDiscount = Number(p.discountPercent || 0) > 0;
         const wishIds = getWishlistProductIds();
@@ -299,11 +299,11 @@
 
         const badge = outOfStock
             ? '<span class="tc-watch-tag">Sold Out</span>'
-            : (p.newArrival ? '<span class="tc-watch-tag tc-watch-tag-gold">New Arrival</span>'
-                : (hasDiscount ? `<span class="tc-watch-tag">-${Math.round(p.discountPercent)}%</span>` : ''));
+            : (hasDiscount
+                ? `<span class="tc-watch-tag tc-watch-tag-sale">-${Math.round(p.discountPercent)}%</span>`
+                : (p.newArrival ? '<span class="tc-watch-tag tc-watch-tag-gold">New Arrival</span>' : ''));
 
-        return `
-        <div class="col-sm-6 col-lg-3">
+        const cardHtml = `
           <article class="tc-watch-card">
             <div class="tc-watch-media">
               ${badge}
@@ -330,7 +330,11 @@
                   <a href="/pages/product-details.html?slug=${encodeURIComponent(p.slug || p.id)}">${escapeHtml(p.name)}</a>
                 </h3>
                 <div class="tc-watch-meta mb-2">
-                  ${escapeHtml(p.movementType)} · ${escapeHtml(p.caseDiameterMm)} mm · ${escapeHtml(p.waterResistanceM)}m
+                  <span>${escapeHtml(p.movementType || 'AUTOMATIC')}</span>
+                  <span>·</span>
+                  <span>${escapeHtml(p.caseDiameterMm || 40)}mm</span>
+                  <span>·</span>
+                  <span>${escapeHtml(p.waterResistanceM || 50)}m</span>
                 </div>
               </div>
               <div>
@@ -338,15 +342,19 @@
                   <span class="fw-semibold fs-6">${formatInr(p.sellingPrice)}</span>
                   ${hasDiscount ? `<span class="text-muted small text-decoration-line-through">${formatInr(p.regularPrice)}</span>` : ''}
                 </div>
-                <button type="button" class="btn-tc-primary w-100 py-2"
+                <button type="button" class="btn-tc-primary w-100"
                         ${outOfStock || !p.defaultVariantId ? 'disabled' : ''}
                         onclick="TC.quickAddToCart(${p.defaultVariantId || 0}, 1, true)">
                   ${outOfStock ? 'Currently Unavailable' : 'Add to Bag'}
                 </button>
               </div>
             </div>
-          </article>
-        </div>`;
+          </article>`;
+
+        if (options && options.bare) {
+            return cardHtml;
+        }
+        return `<div class="col-sm-6 col-lg-3">${cardHtml}</div>`;
     }
 
     // =========================================================================

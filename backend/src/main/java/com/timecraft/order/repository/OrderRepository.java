@@ -32,6 +32,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     long countByStatusIn(Collection<OrderStatus> statuses);
 
+    long countByPaymentMethod(com.timecraft.order.entity.PaymentMethod paymentMethod);
+
     @Query("""
             SELECT COALESCE(SUM(o.grandTotal), 0) FROM Order o
             WHERE o.paymentStatus IN ('PAID', 'PARTIALLY_REFUNDED')

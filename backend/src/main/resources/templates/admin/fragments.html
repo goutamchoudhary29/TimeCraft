@@ -39,6 +39,28 @@
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
+            transition: width 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+        .tc-shell.sidebar-collapsed .tc-sidebar { width: 72px; }
+        .tc-shell.sidebar-collapsed .tc-brand > div,
+        .tc-shell.sidebar-collapsed .tc-nav a span,
+        .tc-shell.sidebar-collapsed .tc-signout-label { display: none; }
+        .tc-card {
+            background: #fff;
+            border: 1px solid var(--tc-border);
+            border-radius: 2px;
+            padding: 1.25rem;
+            transition: transform 0.22s ease, box-shadow 0.22s ease;
+        }
+        .tc-card:hover { box-shadow: 0 8px 22px rgba(26,26,26,0.05); }
+        @keyframes tcRowReveal {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        tbody tr { animation: tcRowReveal 0.32s ease both; }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
         .tc-brand {
             padding: 1.35rem 1.5rem;
@@ -163,16 +185,23 @@
         <a href="/admin/settings" th:classappend="${activeNav == 'settings'} ? 'active'">Store Settings</a>
     </nav>
     <div class="p-3 border-top border-secondary">
-        <a href="/" target="_blank" class="d-block text-decoration-none text-light small mb-2">Open Storefront &nearr;</a>
         <form th:action="@{/admin/logout}" method="post">
-            <button type="submit" class="btn btn-sm btn-outline-light w-100">Sign Out</button>
+            <button type="submit" class="btn btn-sm btn-outline-light w-100">
+                <span class="tc-signout-label">Sign Out</span>
+            </button>
         </form>
     </div>
 </aside>
 
 <header th:fragment="topbar(title)" class="tc-topbar">
-    <h1 class="h3 mb-0 serif" th:text="${title}">Dashboard</h1>
+    <div class="d-flex align-items-center gap-3">
+        <button type="button" class="btn-tc-outline py-1 px-2" id="tcToggleSidebar" title="Toggle Sidebar"
+                onclick="document.querySelector('.tc-shell').classList.toggle('sidebar-collapsed')">&#9776;</button>
+        <h1 class="h3 mb-0 serif" th:text="${title}">Dashboard</h1>
+    </div>
     <div class="d-flex align-items-center gap-3 small">
+        <a href="/admin/orders" class="btn-tc-outline py-1 px-2 text-decoration-none">Orders</a>
+        <a href="/admin/products" class="btn-tc-outline py-1 px-2 text-decoration-none">Catalog</a>
         <span class="badge-tc">ROLE: ADMIN</span>
         <span th:text="${#authentication?.name}">admin@timecraft.example</span>
     </div>

@@ -69,6 +69,7 @@ public class AdminViewController {
     private final CategoryService categoryService;
     private final InventoryService inventoryService;
     private final OrderService orderService;
+    private final com.timecraft.order.service.InvoicePdfService invoicePdfService;
     private final RazorpayPaymentService paymentService;
     private final CouponService couponService;
     private final ShipmentService shipmentService;
@@ -88,11 +89,40 @@ public class AdminViewController {
         return "admin/access-denied";
     }
 
-    @GetMapping({"", "/", "/dashboard"})
+    @GetMapping({"", "/"})
+    public String adminRoot() {
+        return "redirect:/admin/dashboard";
+    }
+
+    @GetMapping("/dashboard")
     public String dashboard(Model model) {
         model.addAttribute("activeNav", "dashboard");
         model.addAttribute("overview", reportService.getDashboardOverview());
         return "admin/dashboard";
+    }
+
+    @GetMapping("/orders/{id}/invoice")
+    public org.springframework.http.ResponseEntity<byte[]> downloadAdminOrderInvoice(@PathVariable Long id) {
+        var order = orderService.getAdminOrderEntity(id);
+        byte[] pdf = invoicePdfService.generateInvoice(order);
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"TimeCraft-Invoice-" + order.getOrderNumber() + ".pdf\"")
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
+    @PostMapping("/orders/{id}/mark-cod-paid")
+    public String markCodOrderPaid(@PathVariable Long id,
+                                   @RequestParam(required = false) String note,
+                                   RedirectAttributes ra) {
+        try {
+            paymentService.recordCodPaymentCollected(id, note);
+            ra.addFlashAttribute("successMessage", "Cash on Delivery payment recorded as PAID.");
+        } catch (Exception ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/admin/orders/" + id;
     }
 
     @GetMapping("/customers")

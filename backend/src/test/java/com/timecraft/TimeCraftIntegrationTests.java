@@ -157,15 +157,35 @@ class TimeCraftIntegrationTests {
         String email = "collector1@timecraft.test";
         RegisterRequest reg = new RegisterRequest("Aarav", "Mehta", email, "WatchPass123", "+91 9876543210");
 
-        MvcResult regRes = mockMvc.perform(post("/api/v1/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reg)))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.otpSent").value(true));
+
+        // Verify 6-digit OTP flow (wrong OTP fails, correct OTP verifies email & issues JWT)
+        User registeredUser = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+        assertThat(registeredUser.isEmailVerified()).isFalse();
+        EmailVerificationToken activeOtp = emailTokenRepository
+                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(registeredUser.getId()).orElseThrow();
+        activeOtp.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "123456"));
+        emailTokenRepository.save(activeOtp);
+
+        mockMvc.perform(post("/api/v1/auth/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"otp\":\"000000\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_OTP"));
+
+        mockMvc.perform(post("/api/v1/auth/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"otp\":\"123456\"}"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.refreshToken").isNotEmpty())
-                .andExpect(jsonPath("$.user.email").value(email))
-                .andExpect(jsonPath("$.user.roles[0]").value("CUSTOMER"))
-                .andReturn();
+                .andExpect(jsonPath("$.user.emailVerified").value(true))
+                .andExpect(jsonPath("$.user.roles[0]").value("CUSTOMER"));
 
         // Duplicate registration rejected with 409
         mockMvc.perform(post("/api/v1/auth/register")
@@ -378,13 +398,24 @@ class TimeCraftIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalQuantity").value(2));
 
-        // Register customer with X-Guest-Token -> guest cart merges automatically
-        RegisterRequest reg = new RegisterRequest("Nisha", "Kapoor", "merge@timecraft.test", "WatchPass123", "+91 9876543211");
-        MvcResult regRes = mockMvc.perform(post("/api/v1/auth/register")
-                        .header("X-Guest-Token", guestToken)
+        // Register customer and verify OTP with X-Guest-Token -> guest cart merges automatically
+        String mergeEmail = "merge@timecraft.test";
+        RegisterRequest reg = new RegisterRequest("Nisha", "Kapoor", mergeEmail, "WatchPass123", "+91 9876543211");
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reg)))
-                .andExpect(status().isCreated())
+                .andExpect(status().isCreated());
+        User mergeUser = userRepository.findByEmailIgnoreCase(mergeEmail).orElseThrow();
+        EmailVerificationToken mergeOtp = emailTokenRepository
+                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(mergeUser.getId()).orElseThrow();
+        mergeOtp.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(mergeEmail, "222333"));
+        emailTokenRepository.save(mergeOtp);
+
+        MvcResult regRes = mockMvc.perform(post("/api/v1/auth/verify-otp")
+                        .header("X-Guest-Token", guestToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + mergeEmail + "\",\"otp\":\"222333\"}"))
+                .andExpect(status().isOk())
                 .andReturn();
         String token = objectMapper.readTree(regRes.getResponse().getContentAsString()).get("accessToken").asText();
 
@@ -673,14 +704,164 @@ class TimeCraftIntegrationTests {
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
+    @Test
+    @org.junit.jupiter.api.Order(7)
+    @DisplayName("23-24. Cash on Delivery (COD) Checkout, Unverified Block & Admin COD Settlement")
+    void codCheckoutAndAdminSettlement() throws Exception {
+        // Unverified user cannot place an order
+        String unverifiedEmail = "unverified@timecraft.test";
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RegisterRequest("Unv", "User", unverifiedEmail, "WatchPass123", "+91 9000000001"))))
+                .andExpect(status().isCreated());
+        User unvUser = userRepository.findByEmailIgnoreCase(unverifiedEmail).orElseThrow();
+        String unvToken = jwtService.generateCustomerAccessToken(unvUser);
+        Long unvAddrId = createIndianAddress(unvToken);
+
+        MvcResult cheapestRes = mockMvc.perform(get("/api/v1/products?sort=price_asc&size=1"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String cheapestSlug = objectMapper.readTree(cheapestRes.getResponse().getContentAsString())
+                .get("content").get(0).get("slug").asText();
+        MvcResult cheapestDetail = mockMvc.perform(get("/api/v1/products/" + cheapestSlug))
+                .andExpect(status().isOk())
+                .andReturn();
+        Long affordableVariantId = objectMapper.readTree(cheapestDetail.getResponse().getContentAsString())
+                .get("variants").get(0).get("id").asLong();
+
+        mockMvc.perform(post("/api/v1/cart/items")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + unvToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AddCartItemRequest(affordableVariantId, 1))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/orders")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + unvToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new PlaceOrderRequest(unvAddrId, null, "Blocked unverified", "cod-unv-1",
+                                        com.timecraft.order.entity.PaymentMethod.COD))))
+                .andExpect(status().isForbidden());
+
+        // Verified user places COD order -> CONFIRMED + PENDING_COD immediately
+        String codEmail = "codbuyer@timecraft.test";
+        String codToken = registerAndGetAccessToken(codEmail);
+        Long codAddrId = createIndianAddress(codToken);
+
+        mockMvc.perform(post("/api/v1/cart/items")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + codToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AddCartItemRequest(affordableVariantId, 1))))
+                .andExpect(status().isOk());
+
+        MvcResult codOrderRes = mockMvc.perform(post("/api/v1/orders")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + codToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new PlaceOrderRequest(codAddrId, null, "Pay cash at door", "cod-ok-1",
+                                        com.timecraft.order.entity.PaymentMethod.COD))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.paymentStatus").value("PENDING_COD"))
+                .andExpect(jsonPath("$.paymentMethod").value("COD"))
+                .andReturn();
+
+        Long codOrderId = objectMapper.readTree(codOrderRes.getResponse().getContentAsString()).get("id").asLong();
+
+        // Admin marks COD order PAID
+        mockMvc.perform(post("/admin/orders/" + codOrderId + "/mark-cod-paid")
+                        .with(user("admin@timecraft.test").roles("ADMIN"))
+                        .with(csrf())
+                        .param("note", "Cash collected by courier"))
+                .andExpect(status().is3xxRedirection());
+
+        Order updated = orderRepository.findById(codOrderId).orElseThrow();
+        assertThat(updated.getPaymentStatus()).isEqualTo(com.timecraft.order.entity.PaymentStatus.PAID);
+
+        // Verify HTML+PDF order invoice email was logged for the confirmed COD order
+        assertThat(emailLogRepository.findAll().stream()
+                .anyMatch(e -> "ORDER_INVOICE_CONFIRMATION".equals(e.getTemplate())
+                        && codOrderId.equals(e.getRelatedId()))).isTrue();
+
+        // Admin PDF invoice download returns valid PDF bytes
+        mockMvc.perform(get("/admin/orders/" + codOrderId + "/invoice")
+                        .with(user("admin@timecraft.test").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .contentType(MediaType.APPLICATION_PDF));
+    }
+
+    @Autowired
+    private com.timecraft.notification.repository.EmailLogRepository emailLogRepository;
+    @Autowired
+    private com.timecraft.authentication.repository.PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Test
+    @org.junit.jupiter.api.Order(8)
+    @DisplayName("25. Forgot Password & Reset Password OTP Flow (Single-Use & Re-Login)")
+    void forgotAndResetPasswordOtpFlow() throws Exception {
+        String email = "resetotp@timecraft.test";
+        registerAndGetAccessToken(email);
+
+        // Request 6-digit password reset OTP
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.otpSent").value(true));
+
+        User u = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+        PasswordResetToken prt = passwordResetTokenRepository
+                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(u.getId()).orElseThrow();
+        prt.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "778899"));
+        passwordResetTokenRepository.save(prt);
+
+        // Wrong OTP rejected
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"otp\":\"000000\",\"newPassword\":\"NewWatchPass99\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Correct OTP updates password
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"otp\":\"778899\",\"newPassword\":\"NewWatchPass99\"}"))
+                .andExpect(status().isOk());
+
+        // Reusing same OTP is rejected (single-use)
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"otp\":\"778899\",\"newPassword\":\"AnotherPass99\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Login with new password succeeds
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest(email, "NewWatchPass99"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
+    }
+
     private String registerAndGetAccessToken(String email) throws Exception {
         RegisterRequest reg = new RegisterRequest("Test", "Collector", email, "WatchPass123", "+91 9876543210");
-        MvcResult res = mockMvc.perform(post("/api/v1/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reg)))
-                .andExpect(status().isCreated())
+                .andExpect(status().isCreated());
+        User u = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+        EmailVerificationToken otpToken = emailTokenRepository
+                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(u.getId()).orElseThrow();
+        otpToken.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "654321"));
+        emailTokenRepository.save(otpToken);
+
+        MvcResult verifyRes = mockMvc.perform(post("/api/v1/auth/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"otp\":\"654321\"}"))
+                .andExpect(status().isOk())
                 .andReturn();
-        return objectMapper.readTree(res.getResponse().getContentAsString()).get("accessToken").asText();
+        return objectMapper.readTree(verifyRes.getResponse().getContentAsString()).get("accessToken").asText();
     }
 
     private Long createIndianAddress(String token) throws Exception {

@@ -29,10 +29,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     const host = document.getElementById('checkoutHost');
 
     try {
-        const [cart, addresses] = await Promise.all([
+        const [cart, addresses, profile] = await Promise.all([
             TC.api('/cart'),
-            TC.api('/addresses')
+            TC.api('/addresses'),
+            TC.api('/customer/profile').catch(() => null)
         ]);
+        if (profile && !profile.emailVerified) {
+            host.innerHTML = `
+              <div class="tc-panel text-center py-5" style="max-width:560px;margin:0 auto;border-top:4px solid #B08D57;">
+                <div class="tc-eyebrow mb-2">Email Verification Required</div>
+                <h2 class="tc-serif mb-2">Verify Your Email Before Ordering</h2>
+                <p class="text-muted small mb-4">
+                  Your account (<strong>${TC.escapeHtml(profile.email)}</strong>) is not yet verified.
+                  Click below to receive a 6-digit OTP in your email and unlock Razorpay &amp; Cash on Delivery checkout.
+                </p>
+                <button type="button" id="chkVerifyEmailBtn" class="btn-tc-primary">Send 6-Digit OTP &amp; Verify Now &rarr;</button>
+              </div>`;
+            document.getElementById('chkVerifyEmailBtn')?.addEventListener('click', async (ev) => {
+                const b = ev.currentTarget;
+                b.disabled = true;
+                b.textContent = 'Sending OTP…';
+                try {
+                    const res = await TC.api('/auth/resend-otp', { method: 'POST', body: { email: profile.email } });
+                    if (res && res.devOtp) sessionStorage.setItem('tc_dev_otp', res.devOtp);
+                    window.location.href = '/verify-otp?email=' + encodeURIComponent(profile.email);
+                } catch (err) {
+                    b.disabled = false;
+                    b.textContent = 'Send 6-Digit OTP & Verify Now →';
+                    TC.toast(err.message, 'error');
+                }
+            });
+            return;
+        }
         if (!cart.items || !cart.items.length) {
             host.innerHTML = `<div class="tc-panel text-center py-5"><h2 class="tc-serif">Your bag is empty</h2><a href="/pages/shop.html" class="btn-tc-primary mt-2">Explore Watches</a></div>`;
             return;
@@ -65,8 +93,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </label>`).join('')}
                 </div>`}
             </div>
+            <div class="tc-panel mb-3">
+              <h2 class="h4 tc-serif mb-3">2. Payment Method</h2>
+              <div class="row g-3" id="paymentMethodCards">
+                <div class="col-md-6">
+                  <label class="border p-3 d-block h-100 tc-pay-choice active" data-method="RAZORPAY" style="cursor:pointer;border-color:#1A1A1A!important;transition:all 0.2s ease;">
+                    <div class="d-flex align-items-start gap-2">
+                      <input type="radio" name="paymentMethod" value="RAZORPAY" checked class="mt-1">
+                      <div>
+                        <div class="fw-semibold small">Razorpay Online (UPI · QR · Card)</div>
+                        <div class="text-muted" style="font-size:12px;">Instant UPI Intent/VPA, QR Code Scanner, Credit/Debit Cards &amp; Netbanking.</div>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                <div class="col-md-6">
+                  <label class="border p-3 d-block h-100 tc-pay-choice" data-method="COD" style="cursor:pointer;transition:all 0.2s ease;">
+                    <div class="d-flex align-items-start gap-2">
+                      <input type="radio" name="paymentMethod" value="COD" class="mt-1">
+                      <div>
+                        <div class="fw-semibold small">Cash on Delivery (COD)</div>
+                        <div class="text-muted" style="font-size:12px;">Pay in cash at your doorstep on delivery (orders up to ₹50,000).</div>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
             <div class="tc-panel">
-              <h2 class="h4 tc-serif mb-2">2. Concierge Delivery Note (Optional)</h2>
+              <h2 class="h4 tc-serif mb-2">3. Concierge Delivery Note (Optional)</h2>
               <textarea id="checkoutNote" rows="2" class="form-control" placeholder="Wrist sizing request, gift card inscription or delivery instructions"></textarea>
             </div>
           </div>
@@ -100,6 +155,22 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         </div>`;
 
+        document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                document.querySelectorAll('.tc-pay-choice').forEach(el => {
+                    const isSelected = el.dataset.method === radio.value;
+                    el.style.borderColor = isSelected ? '#1A1A1A' : '#E5E2DC';
+                    el.style.background = isSelected ? '#FAF9F6' : '#FFFFFF';
+                });
+                const btn = document.getElementById('placeOrderBtn');
+                if (btn) {
+                    btn.textContent = radio.value === 'COD'
+                        ? 'Confirm Cash on Delivery Order'
+                        : 'Reserve Stock & Pay via Razorpay';
+                }
+            });
+        });
+
         const idempotencyKey = 'chk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
         document.getElementById('placeOrderBtn')?.addEventListener('click', async () => {
             const addrRadio = document.querySelector('input[name="selectedAddress"]:checked');
@@ -107,9 +178,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 TC.toast('Please select a delivery address', 'error');
                 return;
             }
+            const selectedMethod = (document.querySelector('input[name="paymentMethod"]:checked') || { value: 'RAZORPAY' }).value;
             const btn = document.getElementById('placeOrderBtn');
             btn.disabled = true;
-            btn.textContent = 'Reserving Stock & Creating Order…';
+            btn.textContent = selectedMethod === 'COD' ? 'Confirming COD Order…' : 'Reserving Stock & Creating Order…';
             let order = null;
             try {
                 order = await TC.api('/orders', {
@@ -119,9 +191,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                         addressId: Number(addrRadio.value),
                         couponCode: cart.appliedCouponCode,
                         customerNote: document.getElementById('checkoutNote').value,
-                        idempotencyKey
+                        idempotencyKey,
+                        paymentMethod: selectedMethod
                     }
                 });
+
+                if (selectedMethod === 'COD') {
+                    window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(order.orderNumber)}&method=COD`;
+                    return;
+                }
 
                 const paymentOrder = await TC.api('/payments/create', {
                     method: 'POST',
@@ -138,17 +216,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return;
                 }
 
+                const cleanContact = (function (raw) {
+                    const digits = String(raw || '').replace(/\D/g, '');
+                    const last10 = digits.length >= 10 ? digits.slice(-10) : '';
+                    return /^[6-9]\d{9}$/.test(last10) ? last10 : '9876543210';
+                })(paymentOrder.customerPhone);
+
                 const rzp = new Razorpay({
-                    key: paymentOrder.razorpayKeyId,
-                    amount: paymentOrder.amountInMinorUnits,
-                    currency: paymentOrder.currency,
+                    key: paymentOrder.keyId || paymentOrder.razorpayKeyId,
+                    amount: paymentOrder.amountInPaise || paymentOrder.amountInMinorUnits,
+                    currency: 'INR',
                     name: 'TimeCraft Fine Horology',
                     description: 'Order ' + paymentOrder.orderNumber,
                     order_id: paymentOrder.razorpayOrderId,
+                    method: {
+                        upi: true,
+                        card: true,
+                        netbanking: true,
+                        wallet: true
+                    },
                     prefill: {
-                        name: paymentOrder.customerName,
-                        email: paymentOrder.customerEmail,
-                        contact: paymentOrder.customerPhone
+                        name: paymentOrder.customerName || 'TimeCraft Collector',
+                        email: paymentOrder.customerEmail || '',
+                        contact: cleanContact
                     },
                     theme: { color: '#1A1A1A' },
                     handler: async function (response) {
@@ -165,36 +255,41 @@ document.addEventListener('DOMContentLoaded', async () => {
                             });
                             window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(order.orderNumber)}`;
                         } catch (verifyErr) {
+                            TC.toast('Payment verification failed: ' + verifyErr.message, 'error');
                             window.location.href = `/pages/payment-result.html?status=failed&order=${encodeURIComponent(order.orderNumber)}&reason=${encodeURIComponent(verifyErr.message)}`;
                         }
                     },
                     modal: {
                         ondismiss: async function () {
-                            await TC.api('/payments/failure', {
-                                method: 'POST',
-                                body: {
-                                    orderId: order.id,
-                                    razorpayOrderId: paymentOrder.razorpayOrderId,
-                                    reason: 'Customer closed payment modal',
-                                    cancelled: true
-                                }
-                            });
+                            try {
+                                await TC.api('/payments/failure', {
+                                    method: 'POST',
+                                    body: {
+                                        orderId: order.id,
+                                        razorpayOrderId: paymentOrder.razorpayOrderId,
+                                        reason: 'Customer closed payment modal',
+                                        cancelled: true
+                                    }
+                                });
+                            } catch (_) { /* ignore cleanup error */ }
                             window.location.href = `/pages/payment-result.html?status=cancelled&order=${encodeURIComponent(order.orderNumber)}`;
                         }
                     }
                 });
                 rzp.on('payment.failed', async function (resp) {
                     const reason = (resp.error && resp.error.description) || 'Payment declined';
-                    await TC.api('/payments/failure', {
-                        method: 'POST',
-                        body: {
-                            orderId: order.id,
-                            razorpayOrderId: paymentOrder.razorpayOrderId,
-                            razorpayPaymentId: resp.error && resp.error.metadata ? resp.error.metadata.payment_id : null,
-                            reason,
-                            cancelled: false
-                        }
-                    });
+                    try {
+                        await TC.api('/payments/failure', {
+                            method: 'POST',
+                            body: {
+                                orderId: order.id,
+                                razorpayOrderId: paymentOrder.razorpayOrderId,
+                                razorpayPaymentId: resp.error && resp.error.metadata ? resp.error.metadata.payment_id : null,
+                                reason,
+                                cancelled: true
+                            }
+                        });
+                    } catch (_) { /* ignore cleanup error */ }
                     window.location.href = `/pages/payment-result.html?status=failed&order=${encodeURIComponent(order.orderNumber)}&reason=${encodeURIComponent(reason)}`;
                 });
                 rzp.open();

@@ -9,9 +9,11 @@ import com.timecraft.notification.entity.Notification;
 import com.timecraft.notification.repository.EmailLogRepository;
 import com.timecraft.notification.repository.NotificationRepository;
 import com.timecraft.order.entity.Order;
+import com.timecraft.order.service.InvoicePdfService;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -33,6 +35,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final EmailLogRepository emailLogRepository;
+    private final InvoicePdfService invoicePdfService;
     private final JavaMailSender mailSender;
     private final AppProperties properties;
 
@@ -86,6 +89,44 @@ public class NotificationService {
     }
 
     @Transactional
+    public boolean sendVerificationOtpEmail(User user, String otp) {
+        if (properties.mail().logLinks()) {
+            log.info("[DEV MAIL] Email verification OTP for {}: {}", user.getEmail(), otp);
+        }
+        String verifyUrl = properties.frontendBaseUrl() + "/verify-otp?email=" + user.getEmail();
+        String html = buildEmailHtml(
+                "Your TimeCraft Verification Code",
+                "Welcome to TimeCraft, " + escape(user.getFirstName()) + ".",
+                "Use the 6-digit verification code below to activate your account. This code expires in 10 minutes:<br><br>"
+                        + "<div style=\"font-size:32px;letter-spacing:10px;font-weight:700;color:#1A1A1A;background:#F0EFEA;"
+                        + "padding:16px 24px;text-align:center;border:1px solid #E5E2DC;font-family:monospace;\">"
+                        + escape(otp) + "</div>",
+                "Enter Verification Code",
+                verifyUrl
+        );
+        return dispatchEmail(user, user.getEmail(), "Your TimeCraft verification code: " + otp, "EMAIL_VERIFICATION_OTP", html, "USER", user.getId());
+    }
+
+    @Transactional
+    public boolean sendPasswordResetOtpEmail(User user, String otp) {
+        if (properties.mail().logLinks()) {
+            log.info("[DEV MAIL] Password reset OTP for {}: {}", user.getEmail(), otp);
+        }
+        String resetUrl = properties.frontendBaseUrl() + "/pages/reset-password.html?email=" + user.getEmail();
+        String html = buildEmailHtml(
+                "Reset Your TimeCraft Password",
+                "Hello " + escape(user.getFirstName()) + ",",
+                "Use this 6-digit security code to reset your TimeCraft password. Valid for 10 minutes:<br><br>"
+                        + "<div style=\"font-size:32px;letter-spacing:10px;font-weight:700;color:#1A1A1A;background:#F0EFEA;"
+                        + "padding:16px 24px;text-align:center;border:1px solid #E5E2DC;font-family:monospace;\">"
+                        + escape(otp) + "</div>",
+                "Reset Password",
+                resetUrl
+        );
+        return dispatchEmail(user, user.getEmail(), "Your TimeCraft password reset code: " + otp, "PASSWORD_RESET_OTP", html, "USER", user.getId());
+    }
+
+    @Transactional
     public void sendVerificationEmail(User user, String rawToken) {
         String link = properties.frontendBaseUrl() + "/pages/login.html?verify=" + rawToken;
         if (properties.mail().logLinks()) {
@@ -121,21 +162,27 @@ public class NotificationService {
     public void notifyOrderConfirmed(Order order) {
         createNotification(order.getUser(), "ORDER_CONFIRMED",
                 "Order " + order.getOrderNumber() + " confirmed",
-                "Your order of ₹" + order.getGrandTotal() + " has been confirmed and is being prepared.",
+                "Your order of ₹" + order.getGrandTotal() + " (" + order.getPaymentMethod() + ") has been confirmed. Your tax invoice has been emailed.",
                 "/pages/order-details.html?order=" + order.getOrderNumber());
 
         String link = properties.frontendBaseUrl() + "/pages/order-details.html?order=" + order.getOrderNumber();
-        String html = buildEmailHtml(
-                "Order Confirmed · " + order.getOrderNumber(),
-                "Thank you for your order, " + escape(order.getCustomerName()) + ".",
-                "We have received your payment of ₹" + order.getGrandTotal()
-                        + ". Our horologists are preparing your timepiece for insured dispatch.",
-                "View Order",
-                link
-        );
-        dispatchEmail(order.getUser(), order.getCustomerEmail(),
-                "TimeCraft Order Confirmed · " + order.getOrderNumber(),
-                "ORDER_CONFIRMATION", html, "ORDER", order.getId());
+        String invoiceHtml = invoicePdfService.buildHtmlInvoice(order, link);
+        byte[] pdfBytes = null;
+        try {
+            pdfBytes = invoicePdfService.generateInvoice(order);
+        } catch (Exception ex) {
+            log.warn("Could not generate PDF invoice attachment for order {}: {}", order.getOrderNumber(), ex.getMessage());
+        }
+        String pdfFilename = "TimeCraft-Invoice-" + order.getOrderNumber() + ".pdf";
+        if (properties.mail().logLinks()) {
+            log.info("[DEV MAIL] Order Invoice email prepared for {} (Order {}, Total ₹{}, PDF {} bytes)",
+                    order.getCustomerEmail(), order.getOrderNumber(), order.getGrandTotal(),
+                    pdfBytes != null ? pdfBytes.length : 0);
+        }
+        dispatchEmailWithAttachment(order.getUser(), order.getCustomerEmail(),
+                "TimeCraft Tax Invoice & Order Confirmation · " + order.getOrderNumber(),
+                "ORDER_INVOICE_CONFIRMATION", invoiceHtml, "ORDER", order.getId(),
+                pdfFilename, pdfBytes, "application/pdf");
     }
 
     @Transactional
@@ -181,8 +228,14 @@ public class NotificationService {
         dispatchEmail(user, user.getEmail(), "TimeCraft · " + subject, "RETURN_REFUND", html, "RETURN", relatedId);
     }
 
-    private void dispatchEmail(User user, String recipient, String subject, String template,
-                               String html, String relatedType, Long relatedId) {
+    private boolean dispatchEmail(User user, String recipient, String subject, String template,
+                                  String html, String relatedType, Long relatedId) {
+        return dispatchEmailWithAttachment(user, recipient, subject, template, html, relatedType, relatedId, null, null, null);
+    }
+
+    private boolean dispatchEmailWithAttachment(User user, String recipient, String subject, String template,
+                                                String html, String relatedType, Long relatedId,
+                                                String attachmentName, byte[] attachmentBytes, String attachmentMime) {
         EmailLog logEntry = EmailLog.builder()
                 .user(user)
                 .recipient(recipient)
@@ -196,19 +249,26 @@ public class NotificationService {
         if (!properties.mail().enabled()) {
             logEntry.setStatus("SKIPPED_DISABLED");
             emailLogRepository.save(logEntry);
-            return;
+            return false;
         }
 
+        boolean sent = false;
         try {
+            boolean hasAttachment = attachmentName != null && attachmentBytes != null && attachmentBytes.length > 0;
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+            MimeMessageHelper helper = new MimeMessageHelper(message, hasAttachment, StandardCharsets.UTF_8.name());
             helper.setFrom(properties.mail().from());
             helper.setTo(recipient);
             helper.setSubject(subject);
             helper.setText(html, true);
+            if (hasAttachment) {
+                helper.addAttachment(attachmentName, new ByteArrayResource(attachmentBytes),
+                        attachmentMime != null ? attachmentMime : "application/pdf");
+            }
             mailSender.send(message);
             logEntry.setStatus("SENT");
             logEntry.setSentAt(Instant.now());
+            sent = true;
         } catch (Exception ex) {
             log.warn("Email delivery failed for {} ({}): {}", recipient, template, ex.getMessage());
             logEntry.setStatus("FAILED");
@@ -216,6 +276,7 @@ public class NotificationService {
             logEntry.setErrorMessage(err != null && err.length() > 500 ? err.substring(0, 500) : err);
         }
         emailLogRepository.save(logEntry);
+        return sent;
     }
 
     private String buildEmailHtml(String heading, String greeting, String body, String ctaLabel, String ctaUrl) {

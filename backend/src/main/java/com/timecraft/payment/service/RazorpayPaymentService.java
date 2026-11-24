@@ -2,6 +2,10 @@ package com.timecraft.payment.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.razorpay.RazorpayClient;
+import com.razorpay.Utils;
+import org.json.JSONObject;
+import java.math.RoundingMode;
 import com.timecraft.common.dto.PageResponse;
 import com.timecraft.common.util.Money;
 import com.timecraft.common.util.TokenUtils;
@@ -85,7 +89,7 @@ public class RazorpayPaymentService {
     }
 
     public record VerifyPaymentRequest(
-            @NotNull Long orderId,
+            Long orderId,
             @NotBlank String razorpayOrderId,
             @NotBlank String razorpayPaymentId,
             @NotBlank String razorpaySignature,
@@ -105,9 +109,12 @@ public class RazorpayPaymentService {
     public record PaymentOrderResponse(
             Long paymentId,
             Long orderId,
+            Long internalOrderId,
             String orderNumber,
+            String keyId,
             String razorpayKeyId,
             String razorpayOrderId,
+            long amountInPaise,
             long amountInMinorUnits,
             BigDecimal amount,
             String currency,
@@ -176,20 +183,27 @@ public class RazorpayPaymentService {
         var cfg = properties.razorpay();
         boolean useSandbox = !cfg.configured() && cfg.testSandboxEnabled();
 
+        long amountPaise = toPaiseExact(order.getGrandTotal());
+        String keyId = useSandbox ? SANDBOX_KEY_ID : cfg.keyId().trim();
+        String sanitizedPhone = sanitizeIndianPhone(order.getShipPhone());
+
         if (existingCreated.isPresent() && (cfg.configured() || useSandbox)) {
             Payment p = existingCreated.get();
             return new PaymentOrderResponse(
                     p.getId(),
                     order.getId(),
+                    order.getId(),
                     order.getOrderNumber(),
-                    useSandbox ? SANDBOX_KEY_ID : cfg.keyId(),
+                    keyId,
+                    keyId,
                     p.getProviderOrderId(),
-                    Money.toMinorUnits(order.getGrandTotal()),
+                    amountPaise,
+                    amountPaise,
                     order.getGrandTotal(),
-                    order.getCurrency(),
+                    "INR",
                     order.getCustomerName(),
                     order.getCustomerEmail(),
-                    order.getShipPhone(),
+                    sanitizedPhone,
                     useSandbox
             );
         }
@@ -200,7 +214,6 @@ public class RazorpayPaymentService {
                             + "Set your Razorpay Test Mode keys in the environment as documented in README.md.");
         }
 
-        long amountPaise = Money.toMinorUnits(order.getGrandTotal());
         String providerOrderId = useSandbox
                 ? "order_test_" + TokenUtils.randomAlphanumeric(14)
                 : callRazorpayCreateOrder(order, amountPaise);
@@ -210,7 +223,7 @@ public class RazorpayPaymentService {
                 .provider("RAZORPAY")
                 .providerOrderId(providerOrderId)
                 .amount(order.getGrandTotal())
-                .currency(order.getCurrency())
+                .currency("INR")
                 .status(PaymentAttemptStatus.CREATED)
                 .build();
         payment = paymentRepository.save(payment);
@@ -220,15 +233,18 @@ public class RazorpayPaymentService {
         return new PaymentOrderResponse(
                 payment.getId(),
                 order.getId(),
+                order.getId(),
                 order.getOrderNumber(),
-                useSandbox ? SANDBOX_KEY_ID : cfg.keyId(),
+                keyId,
+                keyId,
                 providerOrderId,
                 amountPaise,
+                amountPaise,
                 order.getGrandTotal(),
-                order.getCurrency(),
+                "INR",
                 order.getCustomerName(),
                 order.getCustomerEmail(),
-                order.getShipPhone(),
+                sanitizedPhone,
                 useSandbox
         );
     }
@@ -258,40 +274,64 @@ public class RazorpayPaymentService {
 
     @Transactional
     public OrderDetailDto verifyCheckoutPayment(Long userId, VerifyPaymentRequest req) {
-        Order order = orderService.findCustomerOrderEntity(userId, String.valueOf(req.orderId()));
-        Payment payment = paymentRepository.findByProviderOrderId(req.razorpayOrderId().trim())
-                .orElseThrow(() -> new ResourceNotFoundException("Payment order", req.razorpayOrderId()));
+        String rzpOrderId = req.razorpayOrderId().trim();
+        String rzpPaymentId = req.razorpayPaymentId().trim();
+        String rzpSignature = req.razorpaySignature().trim();
+
+        Payment payment = paymentRepository.findByProviderOrderId(rzpOrderId)
+                .orElseThrow(() -> {
+                    log.warn("Payment verification failed: unknown razorpayOrderId={} for userId={}", rzpOrderId, userId);
+                    return new ResourceNotFoundException("Payment order", rzpOrderId);
+                });
+
+        Order order = req.orderId() != null
+                ? orderService.findCustomerOrderEntity(userId, String.valueOf(req.orderId()))
+                : orderService.findCustomerOrderEntity(userId, String.valueOf(payment.getOrder().getId()));
+
         if (!payment.getOrder().getId().equals(order.getId())) {
+            log.warn("Payment verification ownership mismatch: orderId={}, paymentOrderId={}, userId={}",
+                    order.getId(), payment.getOrder().getId(), userId);
             throw BusinessException.forbidden("Payment order does not belong to this order");
         }
         if (payment.getStatus() == PaymentAttemptStatus.CAPTURED && order.getPaymentStatus() == PaymentStatus.PAID) {
             return OrderDetailDto.from(order); // idempotent duplicate verification call
         }
 
-        String secret = requireKeySecret();
-        String expectedSignature = hmacSha256Hex(
-                req.razorpayOrderId().trim() + "|" + req.razorpayPaymentId().trim(),
-                secret
-        );
-        if (!TokenUtils.constantTimeEquals(expectedSignature, req.razorpaySignature().trim())) {
+        String secret = requireKeySecret().trim();
+        boolean signatureValid;
+        try {
+            JSONObject attributes = new JSONObject();
+            attributes.put("razorpay_order_id", rzpOrderId);
+            attributes.put("razorpay_payment_id", rzpPaymentId);
+            attributes.put("razorpay_signature", rzpSignature);
+            signatureValid = Utils.verifyPaymentSignature(attributes, secret);
+        } catch (Exception ex) {
+            log.warn("Razorpay SDK signature verification threw exception for order={} rzpOrderId={}: {}",
+                    order.getOrderNumber(), rzpOrderId, ex.getMessage());
+            signatureValid = false;
+        }
+
+        if (!signatureValid) {
+            log.warn("Razorpay signature mismatch for order={} (orderId={}, rzpOrderId={}, rzpPaymentId={})",
+                    order.getOrderNumber(), order.getId(), rzpOrderId, rzpPaymentId);
             payment.setStatus(PaymentAttemptStatus.FAILED);
             payment.setFailureReason("Signature verification failed");
             paymentRepository.save(payment);
-            recordTx(payment, "SIGNATURE_MISMATCH", payment.getAmount(), "FAILED", req.razorpayPaymentId(),
+            recordTx(payment, "SIGNATURE_MISMATCH", payment.getAmount(), "FAILED", rzpPaymentId,
                     "Checkout HMAC signature mismatch");
             throw BusinessException.badRequest("INVALID_PAYMENT_SIGNATURE",
-                    "Payment signature verification failed");
+                    "Payment signature verification failed. Please verify RAZORPAY_KEY_SECRET matches your Razorpay dashboard.");
         }
 
-        payment.setProviderPaymentId(req.razorpayPaymentId().trim());
+        payment.setProviderPaymentId(rzpPaymentId);
         payment.setMethod(req.paymentMethod() != null ? req.paymentMethod() : "RAZORPAY");
         payment.setStatus(PaymentAttemptStatus.CAPTURED);
         payment.setPaidAt(Instant.now());
         paymentRepository.save(payment);
         recordTx(payment, "PAYMENT_CAPTURED", payment.getAmount(), "CAPTURED",
-                req.razorpayPaymentId(), "Verified checkout signature");
+                rzpPaymentId, "Verified checkout signature via Razorpay SDK");
 
-        Order confirmed = orderService.confirmOrderAfterVerifiedPayment(order.getId(), req.razorpayPaymentId());
+        Order confirmed = orderService.confirmOrderAfterVerifiedPayment(order.getId(), rzpPaymentId);
         return OrderDetailDto.from(confirmed);
     }
 
@@ -310,8 +350,34 @@ public class RazorpayPaymentService {
             });
         }
         orderService.handlePaymentFailedOrExpired(order,
-                req.reason() != null ? req.reason() : "Payment attempt was not completed", false);
+                req.reason() != null ? req.reason() : "Payment attempt was not completed", req.cancelled());
         return OrderDetailDto.from(order);
+    }
+
+    @Transactional
+    public PaymentDto recordCodPaymentCollected(Long orderId, String note) {
+        Order order = orderService.markCodPaymentCollectedByAdmin(orderId, note);
+        String ref = "cod_" + order.getOrderNumber();
+        Payment payment = paymentRepository.findByProviderOrderId(ref).orElseGet(() -> Payment.builder()
+                .order(order)
+                .provider("COD")
+                .providerOrderId(ref)
+                .providerPaymentId("cod_pay_" + order.getOrderNumber())
+                .amount(order.getGrandTotal())
+                .currency(order.getCurrency())
+                .method("COD")
+                .status(PaymentAttemptStatus.CAPTURED)
+                .paidAt(Instant.now())
+                .build());
+        payment.setStatus(PaymentAttemptStatus.CAPTURED);
+        if (payment.getPaidAt() == null) {
+            payment.setPaidAt(Instant.now());
+        }
+        payment = paymentRepository.save(payment);
+        recordTx(payment, "COD_COLLECTED", order.getGrandTotal(), "CAPTURED",
+                payment.getProviderPaymentId(),
+                note != null && !note.isBlank() ? note : "Cash on Delivery collected and verified by administrator");
+        return PaymentDto.from(payment);
     }
 
     /**
@@ -461,34 +527,52 @@ public class RazorpayPaymentService {
     private String callRazorpayCreateOrder(Order order, long amountPaise) {
         var cfg = properties.razorpay();
         try {
-            String body = objectMapper.writeValueAsString(Map.of(
-                    "amount", amountPaise,
-                    "currency", order.getCurrency(),
-                    "receipt", order.getOrderNumber(),
-                    "notes", Map.of("orderNumber", order.getOrderNumber(), "customerEmail", order.getCustomerEmail())
-            ));
-            String basicAuth = Base64.getEncoder().encodeToString(
-                    (cfg.keyId() + ":" + cfg.keySecret()).getBytes(StandardCharsets.UTF_8));
-            HttpRequest request = HttpRequest.newBuilder(URI.create(cfg.apiBaseUrl() + "/orders"))
-                    .timeout(Duration.ofSeconds(15))
-                    .header("Authorization", "Basic " + basicAuth)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(body))
-                    .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            JsonNode json = objectMapper.readTree(response.body());
-            if (response.statusCode() >= 300 || !json.hasNonNull("id")) {
-                String msg = json.path("error").path("description").asText("Razorpay order creation failed");
-                throw BusinessException.serviceUnavailable("RAZORPAY_API_ERROR", msg);
+            RazorpayClient client = new RazorpayClient(cfg.keyId().trim(), cfg.keySecret().trim());
+            JSONObject orderRequest = new JSONObject();
+            orderRequest.put("amount", amountPaise);
+            orderRequest.put("currency", "INR");
+            orderRequest.put("receipt", order.getOrderNumber());
+            orderRequest.put("payment_capture", 1);
+            JSONObject notes = new JSONObject();
+            notes.put("orderNumber", order.getOrderNumber());
+            notes.put("customerEmail", order.getCustomerEmail());
+            orderRequest.put("notes", notes);
+
+            com.razorpay.Order razorpayOrder = client.orders.create(orderRequest);
+            String rzpOrderId = razorpayOrder.get("id");
+            if (rzpOrderId == null || rzpOrderId.isBlank()) {
+                throw BusinessException.serviceUnavailable("RAZORPAY_API_ERROR", "Razorpay did not return an order id");
             }
-            return json.get("id").asText();
+            return rzpOrderId;
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
-            log.error("Razorpay order creation error", ex);
+            log.error("Razorpay order creation failed for order={}: {}", order.getOrderNumber(), ex.getMessage());
             throw BusinessException.serviceUnavailable("RAZORPAY_UNAVAILABLE",
-                    "Could not reach Razorpay API to create payment order");
+                    "Could not create Razorpay order: " + ex.getMessage());
         }
+    }
+
+    public static long toPaiseExact(BigDecimal inrAmount) {
+        return inrAmount.multiply(BigDecimal.valueOf(100))
+                .setScale(0, RoundingMode.HALF_UP)
+                .longValueExact();
+    }
+
+    public static String sanitizeIndianPhone(String rawPhone) {
+        if (rawPhone == null || rawPhone.isBlank()) {
+            return "9876543210";
+        }
+        String digits = rawPhone.replaceAll("\\D", "");
+        if (digits.length() > 10 && digits.startsWith("91")) {
+            digits = digits.substring(digits.length() - 10);
+        } else if (digits.length() > 10 && digits.startsWith("0")) {
+            digits = digits.substring(digits.length() - 10);
+        }
+        if (digits.length() == 10 && digits.matches("^[6-9]\\d{9}$")) {
+            return digits;
+        }
+        return "9876543210";
     }
 
     public String callRazorpayRefund(Payment payment, BigDecimal amount, String refundReference) {
@@ -540,7 +624,7 @@ public class RazorpayPaymentService {
             throw BusinessException.serviceUnavailable("RAZORPAY_NOT_CONFIGURED",
                     "Razorpay secret key is not configured");
         }
-        return secret;
+        return secret.trim();
     }
 
     private void recordTx(Payment payment, String type, BigDecimal amount, String status,

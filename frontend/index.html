@@ -3,254 +3,464 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TimeCraft · Fine Mechanical &amp; Quartz Horology</title>
+    <title>TimeCraft · Fine Horology &amp; Luxury Watches</title>
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/styles.css" rel="stylesheet">
+    <style>
+        @keyframes tcHeroRise {
+            from { opacity: 0; transform: translateY(22px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes tcFloatHero {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .tc-hero-dark {
+            background: radial-gradient(circle at 76% 45%, #2B2620 0%, #161513 55%, #0F0E0D 100%);
+            color: #FAF9F6;
+            overflow: hidden;
+        }
+        .tc-hero-dark h1,
+        .tc-hero-dark .tc-serif {
+            color: #FAF9F6 !important;
+            opacity: 1 !important;
+        }
+        .tc-hero-reveal { animation: tcHeroRise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .tc-hero-reveal-delay { animation: tcHeroRise 0.95s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both; }
+        .tc-watch-float {
+            animation: tcFloatHero 5.5s ease-in-out infinite;
+            filter: drop-shadow(0 24px 38px rgba(0, 0, 0, 0.48));
+            max-width: 340px;
+            width: 100%;
+        }
+        .tc-reveal {
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .tc-reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .tc-maison-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+        }
+        @media (max-width: 991px) {
+            .tc-maison-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        .tc-maison-card {
+            background: #FFFFFF;
+            border: 1px solid var(--tc-border);
+            border-radius: 3px;
+            padding: 18px 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-width: 0;
+            transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.24s ease, box-shadow 0.24s ease;
+        }
+        .tc-maison-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--tc-gold);
+            box-shadow: 0 12px 24px rgba(26, 26, 26, 0.07);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .tc-hero-reveal, .tc-hero-reveal-delay, .tc-watch-float, .tc-reveal {
+                animation: none !important;
+                transition: none !important;
+                opacity: 1 !important;
+                transform: none !important;
+            }
+        }
+    </style>
 </head>
 <body>
 <div id="tcHeader"></div>
 
-<!-- 1. Hero Section -->
-<section class="tc-hero py-5">
-    <div class="container py-lg-4">
+<!-- 1. Editorial High-Contrast Dark Hero -->
+<section class="tc-hero-dark py-5">
+    <div class="container py-lg-5">
         <div class="row align-items-center g-5">
-            <div class="col-lg-6">
-                <div class="tc-eyebrow mb-2" id="heroEyebrow">The Autumn Horology Edit</div>
-                <h1 class="display-4 tc-serif mb-3" id="heroTitle">Time, crafted with intention.</h1>
-                <p class="text-muted fs-6 mb-4" id="heroSubtitle">
-                    Mechanical icons, hand-guilloché dress pieces and ISO-certified tool watches curated from independent and heritage maisons.
+            <div class="col-lg-7 tc-hero-reveal">
+                <div class="tc-eyebrow mb-2" style="color:#DFC28C;">The Autumn Edit · Fine Horology</div>
+                <h1 class="display-3 tc-serif mb-3" style="line-height:1.06;">Time, crafted with intention.</h1>
+                <p class="mb-4" style="color:rgba(250,249,246,0.82);max-width:540px;font-size:1.04rem;">
+                    Mechanical icons, refined dress pieces and tool watches from Swiss maisons and India's finest watchmakers — <strong style="color:#FAF9F6;">Titan</strong> &amp; <strong style="color:#FAF9F6;">Fastrack</strong>.
                 </p>
-                <div class="d-flex flex-wrap gap-2">
-                    <a href="/pages/shop.html" class="btn-tc-primary">Explore All Timepieces</a>
-                    <a href="/pages/brands.html" class="btn-tc-secondary">Discover Maisons</a>
+                <div class="d-flex flex-wrap gap-3 mb-4">
+                    <a href="#featuredSection" class="btn-tc-primary" style="background:#B08D57;border-color:#B08D57;color:#141311;font-weight:700;">Explore Collection</a>
+                    <a href="/pages/brands.html" class="btn-tc-outline" style="color:#FAF9F6;border-color:rgba(250,249,246,0.4);">Explore Maisons</a>
+                </div>
+                <div class="d-flex flex-wrap gap-4 small pt-3 border-top" style="color:rgba(250,249,246,0.72);border-color:rgba(255,255,255,0.14)!important;">
+                    <span>&#10003; Free Insured Delivery &gt; ₹10,000</span>
+                    <span>&#10003; Razorpay UPI · QR · Card</span>
+                    <span>&#10003; Cash on Delivery Available</span>
                 </div>
             </div>
-            <div class="col-lg-6">
-                <img id="heroImage" src="https://images.unsplash.com/photo-1547996160-81dfa63595aa?w=1600&q=80"
-                     alt="TimeCraft Featured Watch" class="tc-hero-img">
+            <div class="col-lg-5 text-center tc-hero-reveal-delay">
+                <img src="/images/hero-watch-animated.svg"
+                     alt="Animated TimeCraft Mechanical Tourbillon Watch"
+                     class="tc-watch-float mx-auto">
             </div>
         </div>
     </div>
 </section>
 
-<!-- 2. Featured Collections (Categories) -->
-<section class="tc-section">
+<!-- 2. High-Impact 50% OFF Promotional Campaign Banner -->
+<section class="tc-promo-strip py-3" aria-label="Seasonal 50% Off Promotion">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-end mb-4">
-            <div>
-                <div class="tc-eyebrow">Curated Complications</div>
-                <h2 class="h1 tc-serif mb-0">Featured Collections</h2>
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <span class="tc-promo-badge-50">50% OFF</span>
+                <div class="small">
+                    <strong style="letter-spacing:0.1em;text-transform:uppercase;color:#FAF9F6;">End of Season Horology Edit</strong>
+                    <span class="ms-2" style="color:rgba(250,249,246,0.78);">Up to 50% off select mechanical &amp; Indian collector timepieces</span>
+                </div>
             </div>
-            <a href="/pages/shop.html" class="small text-uppercase fw-semibold">View Full Catalog &rarr;</a>
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <span class="tc-countdown-pill" id="tcPromoCountdown" aria-live="polite">Ends in 08h : 42m : 19s</span>
+                <button type="button" id="shop50OffBtn" class="btn-tc-primary py-2 px-3"
+                        style="background:#FAF9F6;color:#141311;border-color:#FAF9F6;font-size:11px;font-weight:700;">
+                    Shop 50% Off &rarr;
+                </button>
+            </div>
         </div>
-        <div class="row g-3" id="homeCategoriesGrid"></div>
     </div>
 </section>
 
-<!-- 3. Featured Premium Watch Collection -->
-<section class="tc-section-stone">
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-end mb-4">
-            <div>
-                <div class="tc-eyebrow">Horological Icons</div>
-                <h2 class="h1 tc-serif mb-0">Premium Watch Collection</h2>
-            </div>
-            <a href="/pages/products.html?featured=true" class="small text-uppercase fw-semibold">All Featured &rarr;</a>
+<!-- 3. Authorized Maisons -->
+<section class="container py-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 border-bottom pb-3 mb-4">
+        <div>
+            <div class="tc-eyebrow">Authorized Houses</div>
+            <h2 class="tc-serif h1 mb-0">Explore by Maison</h2>
         </div>
-        <div class="row g-4" id="homeFeaturedGrid"></div>
+        <a href="/pages/brands.html" class="small text-uppercase fw-semibold">All Maisons &rarr;</a>
+    </div>
+    <div id="brandsGrid" class="tc-maison-grid"></div>
+</section>
+
+<!-- 4. Featured Timepieces (4-Column CSS Grid + Live Filter Pills) -->
+<section id="featuredSection" class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 border-bottom pb-3 mb-4">
+        <div>
+            <div class="tc-eyebrow">Curated Selection</div>
+            <h2 class="tc-serif h1 mb-0">Featured Timepieces</h2>
+        </div>
+        <div class="d-flex flex-wrap gap-2" id="homeFilterPills" role="tablist" aria-label="Filter Featured Watches">
+            <button type="button" class="tc-filter-pill active" data-filter="all">All Pieces</button>
+            <button type="button" class="tc-filter-pill sale-pill" data-filter="sale">Up to 50% Off</button>
+            <button type="button" class="tc-filter-pill" data-filter="indian">Titan &amp; Fastrack</button>
+            <button type="button" class="tc-filter-pill" data-filter="automatic">Automatic</button>
+            <button type="button" class="tc-filter-pill" data-filter="new">New Arrivals</button>
+        </div>
+    </div>
+    <div id="featuredGrid" class="tc-product-grid">
+        <div class="text-muted small py-5">Loading curated timepieces…</div>
+    </div>
+    <div class="text-center mt-4">
+        <a href="/pages/shop.html" class="btn-tc-outline">Browse Complete Archive &rarr;</a>
     </div>
 </section>
 
-<!-- 4. New Arrivals -->
-<section class="tc-section">
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-end mb-4">
-            <div>
-                <div class="tc-eyebrow">Fresh From the Atelier</div>
-                <h2 class="h1 tc-serif mb-0">New Arrivals</h2>
-            </div>
-            <a href="/pages/products.html?newArrival=true" class="small text-uppercase fw-semibold">All New Arrivals &rarr;</a>
-        </div>
-        <div class="row g-4" id="homeNewArrivalsGrid"></div>
-    </div>
-</section>
-
-<!-- 5. Promotional Banner -->
-<section class="py-5" style="background:#1A1A1A;color:#FAF9F6;">
-    <div class="container py-2">
+<!-- 5. Mid-Page Editorial Promo Banner with Copy Code -->
+<section class="container py-4">
+    <div class="p-4 p-lg-5 tc-reveal" style="background:linear-gradient(120deg, #EFECE6 0%, #E7E1D5 100%);border:1px solid var(--tc-border);border-radius:3px;">
         <div class="row align-items-center g-4">
             <div class="col-lg-8">
-                <div class="tc-eyebrow mb-1">Seasonal Privilege</div>
-                <h2 class="display-6 tc-serif text-white mb-2" id="promoTitle">The Diver Season</h2>
-                <p class="mb-0 text-white-50" id="promoText">
-                    Up to 20% off selected dive watches, plus an extra 15% on orders above ₹50,000 with code SEASON15.
+                <div class="tc-eyebrow mb-1">Private Collector Privilege</div>
+                <h2 class="tc-serif display-6 mb-2">Extra 15% Off Orders Above ₹50,000</h2>
+                <p class="text-muted mb-0" style="max-width:600px;">
+                    Apply code <strong class="tc-num" style="color:var(--tc-charcoal);">SEASON15</strong> at checkout for complimentary insured armoured delivery and an additional 15% privilege on Swiss &amp; heritage pieces.
                 </p>
             </div>
             <div class="col-lg-4 text-lg-end">
-                <a href="/pages/category.html?slug=dive" class="btn-tc-secondary bg-light text-dark border-0">Shop Dive Watches</a>
+                <div class="d-inline-flex flex-wrap align-items-center gap-2">
+                    <span class="px-3 py-2 bg-white border tc-num fw-semibold" style="letter-spacing:0.14em;">SEASON15</span>
+                    <button type="button" id="copyPromoBtn" class="btn-tc-primary" style="white-space:nowrap;">
+                        Copy Code
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- 6. Best Sellers -->
-<section class="tc-section">
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-end mb-4">
-            <div>
-                <div class="tc-eyebrow">Collector Favourites</div>
-                <h2 class="h1 tc-serif mb-0">Best Sellers</h2>
-            </div>
-            <a href="/pages/products.html?bestSeller=true" class="small text-uppercase fw-semibold">View Best Sellers &rarr;</a>
+<!-- 6. Interactive Celebrity & Brand Ambassador Campaign Showcase -->
+<section id="ambassadorSection" class="container py-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 border-bottom pb-3 mb-4">
+        <div>
+            <div class="tc-eyebrow">Style Icons &amp; Horology</div>
+            <h2 class="tc-serif h1 mb-0">Celebrity &amp; Ambassador Edit</h2>
         </div>
-        <div class="row g-4" id="homeBestSellersGrid"></div>
+        <span class="small text-muted">Select an ambassador to preview their signature timepiece</span>
     </div>
-</section>
 
-<!-- 7. Featured Brands -->
-<section class="tc-section-stone">
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-end mb-4">
-            <div>
-                <div class="tc-eyebrow">Genevan, Parisian, Nordic &amp; Japanese Craft</div>
-                <h2 class="h1 tc-serif mb-0">Featured Maisons</h2>
+    <div class="row g-4 align-items-stretch tc-reveal">
+        <div class="col-lg-5">
+            <div class="tc-celebrity-frame h-100">
+                <img id="ambassadorPortrait"
+                     src="/images/celebrity-campaign.svg"
+                     data-celebrity-img="/images/celebrity-campaign.jpg"
+                     alt="TimeCraft Brand Ambassador Campaign Portrait"
+                     onerror="this.onerror=null;this.src='/images/celebrity-campaign.svg';">
+                <div style="position:absolute;left:16px;right:16px;bottom:16px;background:rgba(20,19,17,0.86);backdrop-filter:blur(8px);padding:14px 16px;border:1px solid rgba(176,141,87,0.45);border-radius:2px;color:#FAF9F6;">
+                    <div class="tc-eyebrow" id="ambassadorTag" style="color:#DFC28C;">Cinema &amp; Black-Tie Collector</div>
+                    <div class="tc-serif fs-4" id="ambassadorName" style="color:#FAF9F6;">Vikramaditya Rao</div>
+                </div>
             </div>
-            <a href="/pages/brands.html" class="small text-uppercase fw-semibold">All Maisons &rarr;</a>
         </div>
-        <div class="row g-3" id="homeBrandsGrid"></div>
-    </div>
-</section>
-
-<!-- 8. Customer Reviews & Brand Story -->
-<section class="tc-section">
-    <div class="container">
-        <div class="row g-4 align-items-stretch">
-            <div class="col-lg-5">
-                <div class="tc-panel-stone h-100 d-flex flex-column justify-content-between">
+        <div class="col-lg-7 d-flex flex-column justify-content-between gap-4">
+            <div class="tc-panel" style="background:#FFFFFF;">
+                <div class="tc-eyebrow mb-2">Ambassador Notes</div>
+                <blockquote class="tc-serif fs-2 mb-3" id="ambassadorQuote" style="line-height:1.25;">
+                    “A mechanical dress watch is the quietest statement in any room — precision you feel every morning.”
+                </blockquote>
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pt-3 border-top">
                     <div>
-                        <div class="tc-eyebrow mb-2">Our Philosophy</div>
-                        <h2 class="h2 tc-serif mb-3">The TimeCraft Maison Story</h2>
-                        <p class="text-muted" id="brandStoryText">
-                            TimeCraft began with a simple belief: a watch should be chosen as carefully as it was made. Every piece we offer is inspected by our horologists, delivered fully insured, and backed by an authorised warranty.
-                        </p>
+                        <div class="small text-muted text-uppercase" style="letter-spacing:0.12em;">Signature Pairing</div>
+                        <div class="fw-semibold fs-6" id="ambassadorWatchName">Aurelian Genève · Heritage Classique 38</div>
+                        <div class="small text-muted tc-price" id="ambassadorWatchMeta">Automatic · 38mm · Swiss Made</div>
                     </div>
-                    <div class="pt-3">
-                        <a href="/pages/about.html" class="btn-tc-secondary">Read Our Story</a>
-                    </div>
+                    <a id="ambassadorShopLink" href="/pages/shop.html" class="btn-tc-primary" style="white-space:nowrap;">
+                        Shop Signature Watch &rarr;
+                    </a>
                 </div>
             </div>
-            <div class="col-lg-7">
-                <div class="tc-panel h-100">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+
+            <div class="vstack gap-2" id="ambassadorTabs" role="tablist" aria-label="Select Brand Ambassador">
+                <button type="button" class="tc-ambassador-tab active" data-amb="0">
+                    <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <div class="tc-eyebrow">Verified Collectors</div>
-                            <h2 class="h3 tc-serif mb-0">Client Impressions</h2>
+                            <div class="fw-semibold">Vikramaditya Rao</div>
+                            <div class="small text-muted">Cinema &amp; Black-Tie Collector · Swiss Dress Heritage</div>
                         </div>
-                        <a href="/pages/reviews.html" class="small text-uppercase">All Reviews &rarr;</a>
+                        <span class="tc-eyebrow">01</span>
                     </div>
-                    <div id="homeReviewsList" class="vstack gap-3"></div>
-                </div>
+                </button>
+                <button type="button" class="tc-ambassador-tab" data-amb="1">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-semibold">Ananya Dev</div>
+                            <div class="small text-muted">Architectural Minimalist · Titan Edge Ceramic</div>
+                        </div>
+                        <span class="tc-eyebrow">02</span>
+                    </div>
+                </button>
+                <button type="button" class="tc-ambassador-tab" data-amb="2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-semibold">Kabir Malhotra</div>
+                            <div class="small text-muted">Motorsport &amp; Chronograph Enthusiast · Titanium GMT &amp; Fastrack</div>
+                        </div>
+                        <span class="tc-eyebrow">03</span>
+                    </div>
+                </button>
             </div>
         </div>
     </div>
 </section>
 
-<!-- 9. Newsletter Subscription -->
-<section class="tc-section-stone">
-    <div class="container text-center" style="max-width:620px;">
-        <div class="tc-eyebrow mb-1">The Horological Dispatch</div>
-        <h2 class="h1 tc-serif mb-2">Join the TimeCraft Journal</h2>
-        <p class="text-muted small mb-4">
-            Receive private allocations, calibre essays and seasonal privileges directly in your inbox.
-        </p>
-        <form id="newsletterForm" class="d-flex gap-2 justify-content-center">
-            <input type="email" id="newsletterEmail" class="form-control" style="max-width:340px;" required placeholder="Enter your email address">
-            <button type="submit" class="btn-tc-primary">Subscribe</button>
-        </form>
+<!-- 7. Indian Horology Spotlight (Titan & Fastrack) -->
+<section class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 border-bottom pb-3 mb-4">
+        <div>
+            <div class="tc-eyebrow">Indian Watchmakers</div>
+            <h2 class="tc-serif h1 mb-0">Titan &amp; Fastrack Editions</h2>
+        </div>
+        <a href="/pages/shop.html" class="small text-uppercase fw-semibold">Shop All &rarr;</a>
+    </div>
+    <div id="indianGrid" class="tc-product-grid"></div>
+</section>
+
+<!-- 8. Editorial Philosophy -->
+<section class="container py-5">
+    <div class="tc-panel text-center py-5 tc-reveal" style="background:var(--tc-stone);">
+        <div class="tc-eyebrow">The TimeCraft Philosophy</div>
+        <blockquote class="tc-serif display-6 mx-auto mb-3" style="max-width:740px;">
+            “A fine timepiece does not merely measure hours — it marks the chapters you choose to remember.”
+        </blockquote>
+        <a href="/pages/about.html" class="btn-tc-primary mt-2">Read Our Story</a>
     </div>
 </section>
 
 <div id="tcFooter"></div>
-
 <script src="/js/app.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
-    await TC.mountChrome('home');
-    const cfg = window.TC_STORE_CONFIG || {};
-    if (cfg['content.hero_eyebrow']) document.getElementById('heroEyebrow').textContent = cfg['content.hero_eyebrow'];
-    if (cfg['content.hero_title']) document.getElementById('heroTitle').textContent = cfg['content.hero_title'];
-    if (cfg['content.hero_subtitle']) document.getElementById('heroSubtitle').textContent = cfg['content.hero_subtitle'];
-    if (cfg['content.hero_image']) document.getElementById('heroImage').src = cfg['content.hero_image'];
-    if (cfg['content.promo_title']) document.getElementById('promoTitle').textContent = cfg['content.promo_title'];
-    if (cfg['content.promo_text']) document.getElementById('promoText').textContent = cfg['content.promo_text'];
-    if (cfg['content.brand_story']) document.getElementById('brandStoryText').textContent = cfg['content.brand_story'];
+    await TC.mountChrome();
 
-    try {
-        const [collections, categories, brands, reviews] = await Promise.all([
-            TC.api('/products/collections'),
-            TC.api('/categories'),
-            TC.api('/brands'),
-            TC.api('/reviews/featured')
-        ]);
+    // Scroll reveal observer
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry, idx) => {
+            if (entry.isIntersecting) {
+                entry.target.style.transitionDelay = (idx % 4) * 55 + 'ms';
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.08 });
+    document.querySelectorAll('.tc-reveal').forEach(el => observer.observe(el));
 
-        document.getElementById('homeCategoriesGrid').innerHTML = (categories || []).slice(0, 6).map(c => `
-            <div class="col-6 col-lg-2">
-              <a href="/pages/category.html?slug=${encodeURIComponent(c.slug)}" class="tc-panel d-block text-center h-100 p-3">
-                <div class="tc-serif fs-5">${TC.escapeHtml(c.name)}</div>
-                <div class="small text-muted mt-1">Explore &rarr;</div>
-              </a>
-            </div>`).join('');
-
-        document.getElementById('homeFeaturedGrid').innerHTML = (collections.featured || []).slice(0, 4).map(TC.renderWatchCard).join('');
-        document.getElementById('homeNewArrivalsGrid').innerHTML = (collections.newArrivals || []).slice(0, 4).map(TC.renderWatchCard).join('');
-        document.getElementById('homeBestSellersGrid').innerHTML = (collections.bestSellers || []).slice(0, 4).map(TC.renderWatchCard).join('');
-
-        document.getElementById('homeBrandsGrid').innerHTML = (brands || []).map(b => `
-            <div class="col-md-4">
-              <a href="/pages/brand-details.html?slug=${encodeURIComponent(b.slug)}" class="tc-panel d-block h-100">
-                ${b.logoUrl ? `<img src="${TC.escapeHtml(b.logoUrl)}" alt="${TC.escapeHtml(b.name)}" style="height:38px;" class="mb-2">` : ''}
-                <div class="tc-eyebrow">${TC.escapeHtml(b.countryOfOrigin || 'Horology')} ${b.foundedYear ? '· Est. ' + b.foundedYear : ''}</div>
-                <h3 class="tc-serif fs-3 my-1">${TC.escapeHtml(b.name)}</h3>
-                <p class="small text-muted mb-0">${TC.escapeHtml(b.description || '')}</p>
-              </a>
-            </div>`).join('');
-
-        const revEl = document.getElementById('homeReviewsList');
-        if (reviews && reviews.length > 0) {
-            revEl.innerHTML = reviews.slice(0, 3).map(r => `
-                <div class="border-bottom pb-3">
-                  <div class="d-flex justify-content-between small">
-                    <span class="fw-semibold">${TC.escapeHtml(r.title)} · ${'★'.repeat(r.rating)}</span>
-                    <span class="text-muted">Verified Purchase · ${TC.escapeHtml(r.reviewerName)}</span>
-                  </div>
-                  <div class="small text-muted mt-1">${TC.escapeHtml(r.body)}</div>
-                </div>`).join('');
-        } else {
-            revEl.innerHTML = `
-                <div class="border-bottom pb-3">
-                  <div class="fw-semibold small">“Impeccable finishing on the Lune Moonphase 40” · ★★★★★</div>
-                  <div class="small text-muted mt-1">Delivered via insured courier with full atelier documentation and warranty card.</div>
-                </div>
-                <div>
-                  <div class="fw-semibold small">“Abyss 300 Diver handles daily wear effortlessly” · ★★★★★</div>
-                  <div class="small text-muted mt-1">Bezel action is crisp and the lume lasts through the night.</div>
-                </div>`;
-        }
-    } catch (err) {
-        console.error(err);
+    // Live Countdown Timer for 50% OFF Campaign
+    const countdownEl = document.getElementById('tcPromoCountdown');
+    if (countdownEl) {
+        let remainingSec = (8 * 3600) + (42 * 60) + 19;
+        const tick = () => {
+            const h = String(Math.floor(remainingSec / 3600)).padStart(2, '0');
+            const m = String(Math.floor((remainingSec % 3600) / 60)).padStart(2, '0');
+            const s = String(remainingSec % 60).padStart(2, '0');
+            countdownEl.textContent = `Ends in ${h}h : ${m}m : ${s}s`;
+            if (remainingSec > 0) remainingSec--;
+        };
+        tick();
+        setInterval(tick, 1000);
     }
 
-    document.getElementById('newsletterForm').addEventListener('submit', async e => {
-        e.preventDefault();
-        const email = document.getElementById('newsletterEmail').value;
-        try {
-            const res = await TC.api('/store/newsletter', { method: 'POST', body: { email } });
-            TC.toast(res.message || 'Subscribed');
-            e.target.reset();
-        } catch (err) {
-            TC.toast(err.message, 'error');
+    // Copy Promo Code button
+    const copyBtn = document.getElementById('copyPromoBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText('SEASON15');
+            } catch { /* fallback */ }
+            copyBtn.textContent = 'COPIED ✓';
+            copyBtn.style.background = '#235D3A';
+            copyBtn.style.borderColor = '#235D3A';
+            TC.toast('Promo code SEASON15 copied to clipboard');
+            setTimeout(() => {
+                copyBtn.textContent = 'Copy Code';
+                copyBtn.style.background = '';
+                copyBtn.style.borderColor = '';
+            }, 2200);
+        });
+    }
+
+    let allProducts = [];
+
+    function renderGrid(host, list) {
+        if (!host) return;
+        if (!list.length) {
+            host.innerHTML = '<div class="tc-panel text-center text-muted py-4" style="grid-column: 1 / -1;">No watches matched this selection. Try another filter.</div>';
+            return;
         }
+        host.innerHTML = list.map(w => TC.renderWatchCard(w, { bare: true })).join('');
+    }
+
+    function applyHomeFilter(filterKey) {
+        document.querySelectorAll('#homeFilterPills .tc-filter-pill').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.filter === filterKey);
+        });
+        let filtered = allProducts;
+        if (filterKey === 'sale') {
+            filtered = allProducts.filter(w => Number(w.discountPercent) > 0);
+            if (!filtered.length) filtered = allProducts.slice(0, 8);
+        } else if (filterKey === 'indian') {
+            filtered = allProducts.filter(w => /titan|fastrack/i.test(w.brandName || ''));
+        } else if (filterKey === 'automatic') {
+            filtered = allProducts.filter(w => /automatic/i.test(w.movementType || ''));
+        } else if (filterKey === 'new') {
+            filtered = allProducts.filter(w => w.newArrival);
+        }
+        renderGrid(document.getElementById('featuredGrid'), filtered.slice(0, 8));
+    }
+
+    document.querySelectorAll('#homeFilterPills .tc-filter-pill').forEach(btn => {
+        btn.addEventListener('click', () => applyHomeFilter(btn.dataset.filter));
     });
+
+    document.getElementById('shop50OffBtn')?.addEventListener('click', () => {
+        applyHomeFilter('sale');
+        document.getElementById('featuredSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // Ambassador Showcase Data
+    const ambassadors = [
+        {
+            name: 'Vikramaditya Rao',
+            tag: 'Cinema & Black-Tie Collector',
+            quote: '“A mechanical dress watch is the quietest statement in any room — precision you feel every morning.”',
+            portrait: '/images/celebrity-campaign.svg',
+            match: (w) => /aurelian|verac|classique/i.test((w.brandName || '') + ' ' + (w.name || ''))
+        },
+        {
+            name: 'Ananya Dev',
+            tag: 'Architectural Minimalist · Bengaluru',
+            quote: '“Ultra-slim Indian horology meets timeless geometry. Titan Edge feels weightless from studio to gallery.”',
+            portrait: '/images/celebrity-campaign.svg',
+            match: (w) => /titan/i.test(w.brandName || '')
+        },
+        {
+            name: 'Kabir Malhotra',
+            tag: 'Motorsport & Chronograph Enthusiast',
+            quote: '“Whether timing laps or crossing time zones, a bold dial and titanium case never miss a beat.”',
+            portrait: '/images/celebrity-campaign.svg',
+            match: (w) => /fastrack|sora|gmt|diver/i.test((w.brandName || '') + ' ' + (w.name || ''))
+        }
+    ];
+
+    function selectAmbassador(index) {
+        const amb = ambassadors[index] || ambassadors[0];
+        document.querySelectorAll('#ambassadorTabs .tc-ambassador-tab').forEach((t, i) => {
+            t.classList.toggle('active', i === index);
+        });
+        document.getElementById('ambassadorName').textContent = amb.name;
+        document.getElementById('ambassadorTag').textContent = amb.tag;
+        document.getElementById('ambassadorQuote').textContent = amb.quote;
+
+        const watch = allProducts.find(amb.match) || allProducts[0];
+        const portraitEl = document.getElementById('ambassadorPortrait');
+        if (watch) {
+            document.getElementById('ambassadorWatchName').textContent = `${watch.brandName} · ${watch.name}`;
+            document.getElementById('ambassadorWatchMeta').textContent =
+                `${watch.movementType || 'Automatic'} · ${watch.caseDiameterMm || 40}mm · ${TC.formatInr(watch.sellingPrice)}`;
+            document.getElementById('ambassadorShopLink').href = `/pages/product-details.html?slug=${encodeURIComponent(watch.slug)}`;
+            if (portraitEl && watch.primaryImageUrl) {
+                portraitEl.src = watch.primaryImageUrl;
+            }
+        } else if (portraitEl) {
+            portraitEl.src = amb.portrait;
+        }
+    }
+
+    document.querySelectorAll('#ambassadorTabs .tc-ambassador-tab').forEach(btn => {
+        btn.addEventListener('click', () => selectAmbassador(Number(btn.dataset.amb)));
+    });
+
+    // Fetch live catalog data
+    try {
+        const [brands, productsPage] = await Promise.all([
+            TC.api('/brands'),
+            TC.api('/products?size=30')
+        ]);
+
+        const bHost = document.getElementById('brandsGrid');
+        if (bHost && Array.isArray(brands)) {
+            bHost.innerHTML = brands.map(b => `
+                <a href="/pages/shop.html?brand=${encodeURIComponent(b.slug || b.id)}" class="tc-maison-card">
+                    ${b.logoUrl ? `<img src="${TC.escapeHtml(b.logoUrl)}" alt="${TC.escapeHtml(b.name)}" style="height:30px;object-fit:contain;" class="mb-2">` : ''}
+                    <span class="small fw-semibold">${TC.escapeHtml(b.name)}</span>
+                    <span class="text-muted" style="font-size:11px;">${TC.escapeHtml(b.countryOfOrigin || '')}</span>
+                </a>
+            `).join('');
+        }
+
+        allProducts = (productsPage && productsPage.content) ? productsPage.content : [];
+        applyHomeFilter('all');
+        selectAmbassador(0);
+
+        const indianList = allProducts.filter(w => /titan|fastrack/i.test(w.brandName || '')).slice(0, 4);
+        renderGrid(document.getElementById('indianGrid'), indianList);
+    } catch (err) {
+        console.error('Homepage load error:', err);
+        const fHost = document.getElementById('featuredGrid');
+        if (fHost) fHost.innerHTML = `<div class="tc-panel text-danger py-4 small" style="grid-column: 1 / -1;">Unable to load watches: ${TC.escapeHtml(err.message)}</div>`;
+    }
 });
 </script>
 </body>

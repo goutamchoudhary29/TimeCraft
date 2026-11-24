@@ -4,6 +4,7 @@ import com.timecraft.order.entity.Order;
 import com.timecraft.order.entity.OrderItem;
 import com.timecraft.order.entity.OrderStatus;
 import com.timecraft.order.entity.OrderStatusHistory;
+import com.timecraft.order.entity.PaymentMethod;
 import com.timecraft.order.entity.PaymentStatus;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -21,8 +22,12 @@ public final class OrderDtos {
             @NotNull Long addressId,
             @Size(max = 40) String couponCode,
             @Size(max = 500) String customerNote,
-            @Size(max = 64) String idempotencyKey
+            @Size(max = 64) String idempotencyKey,
+            PaymentMethod paymentMethod
     ) {
+        public PlaceOrderRequest(Long addressId, String couponCode, String customerNote, String idempotencyKey) {
+            this(addressId, couponCode, customerNote, idempotencyKey, PaymentMethod.RAZORPAY);
+        }
     }
 
     public record CancelOrderRequest(@Size(max = 255) String reason) {
@@ -94,6 +99,7 @@ public final class OrderDtos {
             String orderNumber,
             OrderStatus status,
             PaymentStatus paymentStatus,
+            PaymentMethod paymentMethod,
             String currency,
             BigDecimal grandTotal,
             int itemCount,
@@ -105,7 +111,7 @@ public final class OrderDtos {
         public static OrderSummaryDto from(Order o) {
             int count = o.getItems().stream().mapToInt(OrderItem::getQuantity).sum();
             return new OrderSummaryDto(o.getId(), o.getOrderNumber(), o.getStatus(),
-                    o.getPaymentStatus(), o.getCurrency(), o.getGrandTotal(), count,
+                    o.getPaymentStatus(), o.getPaymentMethod(), o.getCurrency(), o.getGrandTotal(), count,
                     o.getCustomerName(), o.getCustomerEmail(), o.getPlacedAt(), o.getPaymentExpiresAt());
         }
     }
@@ -116,6 +122,7 @@ public final class OrderDtos {
             Long userId,
             OrderStatus status,
             PaymentStatus paymentStatus,
+            PaymentMethod paymentMethod,
             String currency,
             BigDecimal subtotal,
             BigDecimal discountTotal,
@@ -153,6 +160,7 @@ public final class OrderDtos {
                     o.getUser().getId(),
                     o.getStatus(),
                     o.getPaymentStatus(),
+                    o.getPaymentMethod(),
                     o.getCurrency(),
                     o.getSubtotal(),
                     o.getDiscountTotal(),

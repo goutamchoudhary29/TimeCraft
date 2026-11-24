@@ -80,6 +80,8 @@ public class ReportService {
             long pendingOrders,
             long completedOrders,
             long cancelledOrders,
+            long razorpayOrders,
+            long codOrders,
             long lowStockCount,
             long pendingReviews,
             long pendingReturns,
@@ -139,6 +141,8 @@ public class ReportService {
                 OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY));
         long completedOrders = orderRepository.countByStatusIn(List.of(OrderStatus.DELIVERED));
         long cancelledOrders = orderRepository.countByStatusIn(List.of(OrderStatus.CANCELLED, OrderStatus.FAILED));
+        long razorpayOrders = orderRepository.countByPaymentMethod(com.timecraft.order.entity.PaymentMethod.RAZORPAY);
+        long codOrders = orderRepository.countByPaymentMethod(com.timecraft.order.entity.PaymentMethod.COD);
         long lowStockCount = inventoryRepository.countLowStock();
         long pendingReviews = reviewRepository.countByStatus(ReviewStatus.PENDING);
         long pendingReturns = returnRequestRepository.countByStatus(ReturnRequestStatus.REQUESTED);
@@ -181,6 +185,8 @@ public class ReportService {
                 pendingOrders,
                 completedOrders,
                 cancelledOrders,
+                razorpayOrders,
+                codOrders,
                 lowStockCount,
                 pendingReviews,
                 pendingReturns,

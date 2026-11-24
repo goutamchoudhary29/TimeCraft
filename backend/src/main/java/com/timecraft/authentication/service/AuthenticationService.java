@@ -7,8 +7,10 @@ import com.timecraft.authentication.dto.AuthDtos.ChangePasswordRequest;
 import com.timecraft.authentication.dto.AuthDtos.ForgotPasswordRequest;
 import com.timecraft.authentication.dto.AuthDtos.GoogleLoginRequest;
 import com.timecraft.authentication.dto.AuthDtos.LoginRequest;
+import com.timecraft.authentication.dto.AuthDtos.RegisterOtpResponse;
 import com.timecraft.authentication.dto.AuthDtos.RegisterRequest;
 import com.timecraft.authentication.dto.AuthDtos.ResetPasswordRequest;
+import com.timecraft.authentication.dto.AuthDtos.VerifyOtpRequest;
 import com.timecraft.authentication.entity.AccountStatus;
 import com.timecraft.authentication.entity.EmailVerificationToken;
 import com.timecraft.authentication.entity.PasswordResetToken;
@@ -36,6 +38,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
@@ -44,14 +49,18 @@ import java.util.stream.Collectors;
 
 /**
  * Customer authentication, refresh-token rotation with reuse detection,
- * email verification, and password reset.
+ * 6-digit email OTP verification, and OTP-based password reset.
  */
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final int MAX_OTP_ATTEMPTS = 5;
     private static final Duration LOCK_DURATION = Duration.ofMinutes(15);
+    private static final Duration OTP_TTL = Duration.ofMinutes(10);
+    private static final Duration OTP_RESEND_COOLDOWN = Duration.ofSeconds(60);
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -67,7 +76,7 @@ public class AuthenticationService {
     private final AuditLogService auditLogService;
 
     @Transactional
-    public AuthTokenResponse register(RegisterRequest request, HttpServletRequest httpRequest) {
+    public RegisterOtpResponse register(RegisterRequest request, HttpServletRequest httpRequest) {
         String email = request.email().trim().toLowerCase();
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw BusinessException.conflict("EMAIL_ALREADY_EXISTS", "An account with this email already exists");
@@ -85,7 +94,6 @@ public class AuthenticationService {
                 .emailVerified(false)
                 .accountStatus(AccountStatus.ACTIVE)
                 .roles(Set.of(customerRole))
-                .lastLoginAt(Instant.now())
                 .build();
         user = userRepository.save(user);
 
@@ -94,13 +102,94 @@ public class AuthenticationService {
                 .marketingOptIn(false)
                 .build());
 
-        createAndSendVerificationToken(user);
+        OtpDispatchResult dispatch = createAndSendVerificationOtp(user, false);
         notificationService.createNotification(user, "WELCOME",
                 "Welcome to TimeCraft",
-                "Explore our curated collection of mechanical and quartz timepieces. Please verify your email address.",
-                "/pages/profile.html");
+                "Enter the 6-digit OTP sent to your email to verify your account and start shopping.",
+                "/verify-otp?email=" + email);
+
+        String devOtp = (!dispatch.mailDelivered() && properties.mail().logLinks()) ? dispatch.otp() : null;
+        String msg = dispatch.mailDelivered()
+                ? "A 6-digit verification OTP has been sent to your email."
+                : "OTP generated (configure SMTP in run-dev.cmd to send real emails).";
+        return new RegisterOtpResponse(email, true, dispatch.mailDelivered(), devOtp, msg);
+    }
+
+    @Transactional(noRollbackFor = BusinessException.class)
+    public AuthTokenResponse verifyRegistrationOtp(VerifyOtpRequest request, HttpServletRequest httpRequest) {
+        String email = request.email().trim().toLowerCase();
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> BusinessException.badRequest("INVALID_OTP", "Invalid email or verification code"));
+
+        if (user.isEmailVerified()) {
+            return issueTokens(user, UUID.randomUUID().toString(), httpRequest);
+        }
+
+        EmailVerificationToken token = emailVerificationTokenRepository
+                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(user.getId())
+                .orElseThrow(() -> BusinessException.badRequest("OTP_NOT_FOUND",
+                        "No active verification code found. Please request a new OTP."));
+
+        if (token.getExpiresAt().isBefore(Instant.now())) {
+            token.setUsedAt(Instant.now());
+            emailVerificationTokenRepository.save(token);
+            throw BusinessException.badRequest("OTP_EXPIRED", "Verification code has expired. Please request a new OTP.");
+        }
+        if (token.getAttemptCount() >= MAX_OTP_ATTEMPTS) {
+            token.setUsedAt(Instant.now());
+            emailVerificationTokenRepository.save(token);
+            throw BusinessException.badRequest("OTP_MAX_ATTEMPTS",
+                    "Maximum verification attempts exceeded. Please request a new OTP.");
+        }
+
+        String candidateHash = hashOtp(email, request.otp().trim());
+        boolean matched = MessageDigest.isEqual(
+                candidateHash.getBytes(StandardCharsets.UTF_8),
+                token.getTokenHash().getBytes(StandardCharsets.UTF_8)
+        );
+        if (!matched) {
+            int nextAttempts = token.getAttemptCount() + 1;
+            token.setAttemptCount(nextAttempts);
+            if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+                token.setUsedAt(Instant.now());
+            }
+            emailVerificationTokenRepository.save(token);
+            int remaining = Math.max(0, MAX_OTP_ATTEMPTS - nextAttempts);
+            throw BusinessException.badRequest("INVALID_OTP",
+                    remaining > 0
+                            ? "Incorrect verification code. " + remaining + " attempt(s) remaining."
+                            : "Maximum verification attempts exceeded. Please request a new OTP.");
+        }
+
+        token.setUsedAt(Instant.now());
+        emailVerificationTokenRepository.save(token);
+
+        user.setEmailVerified(true);
+        user.setLastLoginAt(Instant.now());
+        user = userRepository.save(user);
 
         return issueTokens(user, UUID.randomUUID().toString(), httpRequest);
+    }
+
+    @Transactional
+    public RegisterOtpResponse resendRegistrationOtp(String email) {
+        String normalized = email.trim().toLowerCase();
+        var userOpt = userRepository.findByEmailIgnoreCase(normalized);
+        if (userOpt.isEmpty()) {
+            return new RegisterOtpResponse(normalized, true, false, null,
+                    "If the account exists and is unverified, a fresh 6-digit OTP has been sent.");
+        }
+        User user = userOpt.get();
+        if (user.isEmailVerified() || user.getAccountStatus() != AccountStatus.ACTIVE) {
+            return new RegisterOtpResponse(normalized, false, false, null,
+                    "Account is already verified or inactive.");
+        }
+        OtpDispatchResult dispatch = createAndSendVerificationOtp(user, true);
+        String devOtp = (!dispatch.mailDelivered() && properties.mail().logLinks()) ? dispatch.otp() : null;
+        String msg = dispatch.mailDelivered()
+                ? "A fresh 6-digit OTP has been sent to your email."
+                : "Fresh OTP generated (configure SMTP in run-dev.cmd to send real emails).";
+        return new RegisterOtpResponse(normalized, true, dispatch.mailDelivered(), devOtp, msg);
     }
 
     @Transactional(noRollbackFor = BusinessException.class)
@@ -337,39 +426,95 @@ public class AuthenticationService {
 
     @Transactional
     public void resendVerification(String email) {
-        userRepository.findByEmailIgnoreCase(email.trim().toLowerCase()).ifPresent(user -> {
-            if (!user.isEmailVerified() && user.getAccountStatus() == AccountStatus.ACTIVE) {
-                createAndSendVerificationToken(user);
-            }
-        });
+        resendRegistrationOtp(email);
     }
 
     @Transactional
-    public void requestPasswordReset(ForgotPasswordRequest request) {
-        userRepository.findByEmailIgnoreCase(request.email().trim().toLowerCase()).ifPresent(user -> {
-            if (user.getAccountStatus() == AccountStatus.ACTIVE && user.hasRole(RoleName.CUSTOMER)) {
-                String rawToken = TokenUtils.generateToken();
-                PasswordResetToken token = PasswordResetToken.builder()
-                        .user(user)
-                        .tokenHash(TokenUtils.sha256(rawToken))
-                        .expiresAt(Instant.now().plus(properties.tokens().passwordResetTtl()))
-                        .build();
-                passwordResetTokenRepository.save(token);
-                notificationService.sendPasswordResetEmail(user, rawToken);
-            }
-        });
-    }
-
-    @Transactional
-    public void resetPassword(ResetPasswordRequest request) {
-        String hash = TokenUtils.sha256(request.token().trim());
-        PasswordResetToken token = passwordResetTokenRepository.findByTokenHash(hash)
-                .orElseThrow(() -> BusinessException.badRequest("INVALID_RESET_TOKEN",
-                        "Invalid or expired password reset link"));
-        if (!token.isUsable()) {
-            throw BusinessException.badRequest("RESET_TOKEN_EXPIRED",
-                    "This password reset link has expired or has already been used");
+    public RegisterOtpResponse requestPasswordReset(ForgotPasswordRequest request) {
+        String normalized = request.email().trim().toLowerCase();
+        var userOpt = userRepository.findByEmailIgnoreCase(normalized);
+        if (userOpt.isEmpty()) {
+            return new RegisterOtpResponse(normalized, true, false, null,
+                    "If an account exists for that email, a 6-digit password reset code has been sent.");
         }
+        User user = userOpt.get();
+        if (user.getAccountStatus() != AccountStatus.ACTIVE || !user.hasRole(RoleName.CUSTOMER)) {
+            return new RegisterOtpResponse(normalized, true, false, null,
+                    "If an account exists for that email, a 6-digit password reset code has been sent.");
+        }
+
+        Instant now = Instant.now();
+        passwordResetTokenRepository.findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(user.getId())
+                .ifPresent(prev -> {
+                    if (prev.getLastSentAt() != null
+                            && prev.getLastSentAt().plus(OTP_RESEND_COOLDOWN).isAfter(now)) {
+                        long waitSec = Duration.between(now, prev.getLastSentAt().plus(OTP_RESEND_COOLDOWN)).toSeconds() + 1;
+                        throw BusinessException.tooManyRequests(
+                                "Please wait " + waitSec + " seconds before requesting another reset code.");
+                    }
+                    prev.setUsedAt(now);
+                    passwordResetTokenRepository.save(prev);
+                });
+
+        String otp = generateSixDigitOtp();
+        PasswordResetToken token = PasswordResetToken.builder()
+                .user(user)
+                .tokenHash(hashOtp(normalized, otp))
+                .expiresAt(now.plus(OTP_TTL))
+                .attemptCount(0)
+                .lastSentAt(now)
+                .build();
+        passwordResetTokenRepository.save(token);
+        boolean delivered = notificationService.sendPasswordResetOtpEmail(user, otp);
+        String devOtp = (!delivered && properties.mail().logLinks()) ? otp : null;
+        String msg = delivered
+                ? "A 6-digit password reset code has been sent to your email."
+                : "Password reset OTP generated (local dev mode).";
+        return new RegisterOtpResponse(normalized, true, delivered, devOtp, msg);
+    }
+
+    @Transactional(noRollbackFor = BusinessException.class)
+    public void resetPassword(ResetPasswordRequest request) {
+        PasswordResetToken token;
+        if (request.email() != null && !request.email().isBlank() && request.otp() != null && !request.otp().isBlank()) {
+            String normalized = request.email().trim().toLowerCase();
+            User user = userRepository.findByEmailIgnoreCase(normalized)
+                    .orElseThrow(() -> BusinessException.badRequest("INVALID_RESET_OTP", "Invalid email or reset code"));
+            token = passwordResetTokenRepository.findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(user.getId())
+                    .orElseThrow(() -> BusinessException.badRequest("INVALID_RESET_OTP",
+                            "No active password reset code found. Please request a new code."));
+            if (!token.isUsable()) {
+                throw BusinessException.badRequest("RESET_OTP_EXPIRED", "Password reset code has expired");
+            }
+            if (token.getAttemptCount() >= MAX_OTP_ATTEMPTS) {
+                token.setUsedAt(Instant.now());
+                passwordResetTokenRepository.save(token);
+                throw BusinessException.badRequest("RESET_OTP_MAX_ATTEMPTS",
+                        "Maximum attempts exceeded. Please request a new reset code.");
+            }
+            String candidateHash = hashOtp(normalized, request.otp().trim());
+            if (!MessageDigest.isEqual(candidateHash.getBytes(StandardCharsets.UTF_8),
+                    token.getTokenHash().getBytes(StandardCharsets.UTF_8))) {
+                token.setAttemptCount(token.getAttemptCount() + 1);
+                if (token.getAttemptCount() >= MAX_OTP_ATTEMPTS) {
+                    token.setUsedAt(Instant.now());
+                }
+                passwordResetTokenRepository.save(token);
+                throw BusinessException.badRequest("INVALID_RESET_OTP", "Incorrect password reset code");
+            }
+        } else if (request.token() != null && !request.token().isBlank()) {
+            String hash = TokenUtils.sha256(request.token().trim());
+            token = passwordResetTokenRepository.findByTokenHash(hash)
+                    .orElseThrow(() -> BusinessException.badRequest("INVALID_RESET_TOKEN",
+                            "Invalid or expired password reset link"));
+            if (!token.isUsable()) {
+                throw BusinessException.badRequest("RESET_TOKEN_EXPIRED",
+                        "This password reset link has expired or has already been used");
+            }
+        } else {
+            throw BusinessException.badRequest("RESET_CODE_REQUIRED", "Email and 6-digit OTP are required");
+        }
+
         token.setUsedAt(Instant.now());
         passwordResetTokenRepository.save(token);
 
@@ -417,15 +562,42 @@ public class AuthenticationService {
         );
     }
 
-    private void createAndSendVerificationToken(User user) {
-        String rawToken = TokenUtils.generateToken();
+    private record OtpDispatchResult(String otp, boolean mailDelivered) {
+    }
+
+    private OtpDispatchResult createAndSendVerificationOtp(User user, boolean enforceCooldown) {
+        Instant now = Instant.now();
+        emailVerificationTokenRepository.findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(user.getId())
+                .ifPresent(prev -> {
+                    if (enforceCooldown && prev.getLastSentAt() != null
+                            && prev.getLastSentAt().plus(OTP_RESEND_COOLDOWN).isAfter(now)) {
+                        long waitSec = Duration.between(now, prev.getLastSentAt().plus(OTP_RESEND_COOLDOWN)).toSeconds() + 1;
+                        throw BusinessException.tooManyRequests(
+                                "Please wait " + waitSec + " seconds before resending OTP.");
+                    }
+                    prev.setUsedAt(now);
+                    emailVerificationTokenRepository.save(prev);
+                });
+
+        String otp = generateSixDigitOtp();
         EmailVerificationToken token = EmailVerificationToken.builder()
                 .user(user)
-                .tokenHash(TokenUtils.sha256(rawToken))
-                .expiresAt(Instant.now().plus(properties.tokens().emailVerificationTtl()))
+                .tokenHash(hashOtp(user.getEmail(), otp))
+                .expiresAt(now.plus(OTP_TTL))
+                .attemptCount(0)
+                .lastSentAt(now)
                 .build();
         emailVerificationTokenRepository.save(token);
-        notificationService.sendVerificationEmail(user, rawToken);
+        boolean delivered = notificationService.sendVerificationOtpEmail(user, otp);
+        return new OtpDispatchResult(otp, delivered);
+    }
+
+    public static String generateSixDigitOtp() {
+        return String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
+    }
+
+    public static String hashOtp(String email, String otp) {
+        return TokenUtils.sha256(email.trim().toLowerCase() + ":" + otp.trim());
     }
 
     private AuthTokenResponse issueTokens(User user, String familyId, HttpServletRequest httpRequest) {

@@ -65,8 +65,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     password: document.getElementById('regPassword').value
                 }
             });
-            TC.setAuthSession(data);
-            window.location.href = '/pages/profile.html';
+            if (data.devOtp) {
+                sessionStorage.setItem('tc_dev_otp', data.devOtp);
+            } else {
+                sessionStorage.removeItem('tc_dev_otp');
+            }
+            TC.toast(data.message || '6-digit OTP sent to your email!');
+            window.location.href = '/verify-otp?email=' + encodeURIComponent(data.email || document.getElementById('regEmail').value);
         } catch (err) {
             TC.toast(err.message, 'error');
         }

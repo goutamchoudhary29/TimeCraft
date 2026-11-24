@@ -37,6 +37,13 @@ public class EmailVerificationToken extends CreatedEntity {
     @Column(name = "used_at")
     private Instant usedAt;
 
+    @Builder.Default
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount = 0;
+
+    @Column(name = "last_sent_at")
+    private Instant lastSentAt;
+
     public boolean isUsable() {
         return usedAt == null && expiresAt.isAfter(Instant.now());
     }

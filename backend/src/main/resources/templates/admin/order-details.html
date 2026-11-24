@@ -13,7 +13,9 @@
                     <div class="tc-card mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h2 class="h5 serif mb-0">Immutable Order Snapshot</h2>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 flex-wrap align-items-center">
+                                <a th:href="@{'/admin/orders/' + ${order.id} + '/invoice'}" class="btn-tc-outline py-1 px-2 text-decoration-none">Download PDF Invoice</a>
+                                <span class="badge-tc" th:text="'METHOD: ' + ${order.paymentMethod}">RAZORPAY</span>
                                 <span class="badge-tc" th:text="'STATUS: ' + ${order.status}">CONFIRMED</span>
                                 <span class="badge-tc" th:text="'PAYMENT: ' + ${order.paymentStatus}">PAID</span>
                             </div>
@@ -82,6 +84,19 @@
                             <div th:text="${order.shipCity} + ', ' + ${order.shipState} + ' - ' + ${order.shipPostalCode} + ' (' + ${order.shipCountry} + ')'">City</div>
                             <div class="text-muted mt-1" th:text="'Phone: ' + ${order.shipPhone} + ' · ' + ${order.customerEmail}">Contact</div>
                         </div>
+                    </div>
+
+                    <div class="tc-card mb-3"
+                         th:if="${order.paymentMethod.name() == 'COD' and order.paymentStatus.name() == 'PENDING_COD'}"
+                         style="border-left: 3px solid var(--tc-gold);">
+                        <h2 class="h5 serif mb-2">Cash on Delivery Settlement</h2>
+                        <p class="small text-muted mb-3">
+                            Confirm cash collection for this COD order to mark payment as <strong>PAID</strong> and record it in the payments ledger &amp; audit log.
+                        </p>
+                        <form th:action="@{'/admin/orders/' + ${order.id} + '/mark-cod-paid'}" method="post" class="vstack gap-2">
+                            <input type="text" name="note" class="form-control" placeholder="Courier receipt / collection note">
+                            <button type="submit" class="btn-tc">Mark COD Payment as PAID</button>
+                        </form>
                     </div>
 
                     <div class="tc-card mb-3">

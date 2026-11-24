@@ -30,6 +30,7 @@ import com.timecraft.order.entity.Order;
 import com.timecraft.order.entity.OrderItem;
 import com.timecraft.order.entity.OrderStatus;
 import com.timecraft.order.entity.OrderStatusHistory;
+import com.timecraft.order.entity.PaymentMethod;
 import com.timecraft.order.entity.PaymentStatus;
 import com.timecraft.order.repository.OrderRepository;
 import com.timecraft.product.entity.Product;
@@ -90,6 +91,11 @@ public class OrderService {
         if (user.getAccountStatus() != AccountStatus.ACTIVE) {
             throw BusinessException.forbidden("Your account is not active");
         }
+        if (!user.isEmailVerified()) {
+            throw BusinessException.forbidden("Please verify your email address with the 6-digit OTP before placing an order.");
+        }
+
+        PaymentMethod paymentMethod = req.paymentMethod() != null ? req.paymentMethod() : PaymentMethod.RAZORPAY;
 
         CustomerAddress address = addressService.requireOwnedEntity(userId, req.addressId());
         Cart cart = cartService.requireNonEmptyUserCart(userId);
@@ -132,11 +138,27 @@ public class OrderService {
         TotalsBreakdown totals = calculator.calculate(rawSubtotal, discountTotal);
         Instant now = Instant.now();
 
+        if (paymentMethod == PaymentMethod.COD) {
+            boolean codEnabled = storeConfigService.getBoolean("cod_enabled", true);
+            if (!codEnabled) {
+                throw BusinessException.badRequest("COD_DISABLED",
+                        "Cash on Delivery is currently disabled. Please pay online via Razorpay.");
+            }
+            BigDecimal codMax = storeConfigService.getDecimal("cod_max_amount", "50000.00");
+            if (totals.grandTotal().compareTo(codMax) > 0) {
+                throw BusinessException.badRequest("COD_LIMIT_EXCEEDED",
+                        "Cash on Delivery is available only for orders up to ₹" + codMax.toPlainString() + ". Please pay online via Razorpay.");
+            }
+        }
+
+        boolean isCod = paymentMethod == PaymentMethod.COD;
+
         Order order = Order.builder()
                 .orderNumber(ReferenceNumberGenerator.next("TC"))
                 .user(user)
-                .status(OrderStatus.PENDING)
-                .paymentStatus(PaymentStatus.PENDING)
+                .status(isCod ? OrderStatus.CONFIRMED : OrderStatus.PENDING)
+                .paymentStatus(isCod ? PaymentStatus.PENDING_COD : PaymentStatus.PENDING)
+                .paymentMethod(paymentMethod)
                 .currency(totals.currency())
                 .subtotal(totals.subtotal())
                 .discountTotal(totals.discountTotal())
@@ -159,8 +181,9 @@ public class OrderService {
                 .shipCountry(address.getCountry())
                 .customerNote(req.customerNote())
                 .idempotencyKey(idempotencyKey)
-                .paymentExpiresAt(now.plus(reservationTtl))
+                .paymentExpiresAt(isCod ? null : now.plus(reservationTtl))
                 .placedAt(now)
+                .confirmedAt(isCod ? now : null)
                 .build();
 
         // Build immutable historical snapshots for each ordered item
@@ -212,8 +235,10 @@ public class OrderService {
         order.getStatusHistory().add(OrderStatusHistory.builder()
                 .order(order)
                 .fromStatus(null)
-                .toStatus(OrderStatus.PENDING)
-                .note("Order created; awaiting online payment verification")
+                .toStatus(isCod ? OrderStatus.CONFIRMED : OrderStatus.PENDING)
+                .note(isCod
+                        ? "Order confirmed via Cash on Delivery (payment pending on delivery)"
+                        : "Order created; awaiting online payment verification")
                 .changedByType("CUSTOMER")
                 .changedByUserId(userId)
                 .build());
@@ -230,8 +255,52 @@ public class OrderService {
             couponService.reserveForOrder(couponEvaluation.coupon(), user, order, couponEvaluation.discountAmount());
         }
 
+        if (isCod) {
+            // COD orders commit stock & coupon immediately
+            inventoryService.commitReservationsForOrder(order);
+            couponService.markRedeemedForOrder(order.getId());
+            for (OrderItem item : order.getItems()) {
+                if (item.getProduct() != null) {
+                    Product p = item.getProduct();
+                    p.setSoldCount(p.getSoldCount() + item.getQuantity());
+                    productRepository.save(p);
+                }
+            }
+            notificationService.notifyOrderConfirmed(order);
+        }
+
         cartService.clearUserCart(userId);
         return OrderDetailDto.from(order);
+    }
+
+    @Transactional
+    public Order markCodPaymentCollectedByAdmin(Long orderId, String note) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+        if (order.getPaymentMethod() != PaymentMethod.COD) {
+            throw BusinessException.badRequest("NOT_COD_ORDER", "Only Cash on Delivery orders can be marked COD paid");
+        }
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            return order;
+        }
+        Long adminId = SecurityUtils.currentPrincipal().map(TimeCraftPrincipal::getId).orElse(null);
+        String adminEmail = SecurityUtils.currentPrincipal().map(TimeCraftPrincipal::getEmail).orElse("admin");
+
+        order.setPaymentStatus(PaymentStatus.PAID);
+        order.getStatusHistory().add(OrderStatusHistory.builder()
+                .order(order)
+                .fromStatus(order.getStatus())
+                .toStatus(order.getStatus())
+                .note("COD payment collected & marked PAID by admin" + (note != null && !note.isBlank() ? ": " + note : ""))
+                .changedByType("ADMIN")
+                .changedByUserId(adminId)
+                .build());
+        order = orderRepository.save(order);
+
+        auditLogService.log(adminId, adminEmail, "COD_PAYMENT_COLLECTED", "ORDER",
+                String.valueOf(order.getId()),
+                "Marked COD order " + order.getOrderNumber() + " as PAID (₹" + order.getGrandTotal() + ")", null);
+        return order;
     }
 
     @CacheEvict(value = {"productDetails", "homeContent"}, allEntries = true)
@@ -401,6 +470,13 @@ public class OrderService {
     public Order requireOrderEntity(Long orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+    }
+
+    @Transactional(readOnly = true)
+    public Order getAdminOrderEntity(Long orderId) {
+        Order order = requireOrderEntity(orderId);
+        order.getItems().size();
+        return order;
     }
 
     @Transactional(readOnly = true)

@@ -51,6 +51,11 @@ public class Order extends BaseEntity {
     private PaymentStatus paymentStatus;
 
     @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false, length = 20)
+    private PaymentMethod paymentMethod = PaymentMethod.RAZORPAY;
+
+    @Builder.Default
     @Column(name = "currency", nullable = false, length = 3)
     private String currency = "INR";
 

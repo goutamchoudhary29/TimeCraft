@@ -68,6 +68,33 @@ public final class AuthDtos {
     public record RefreshRequest(String refreshToken) {
     }
 
+    public record RegisterOtpResponse(
+            String email,
+            boolean otpSent,
+            boolean mailDelivered,
+            String devOtp,
+            String message
+    ) {
+    }
+
+    public record VerifyOtpRequest(
+            @NotBlank(message = "Email is required")
+            @Email(message = "Please enter a valid email address")
+            String email,
+
+            @NotBlank(message = "6-digit OTP is required")
+            @Pattern(regexp = "^\\d{6}$", message = "OTP must be a 6-digit number")
+            String otp
+    ) {
+    }
+
+    public record ResendOtpRequest(
+            @NotBlank(message = "Email is required")
+            @Email(message = "Please enter a valid email address")
+            String email
+    ) {
+    }
+
     public record VerifyEmailRequest(@NotBlank(message = "Verification token is required") String token) {
     }
 
@@ -86,7 +113,11 @@ public final class AuthDtos {
     }
 
     public record ResetPasswordRequest(
-            @NotBlank(message = "Reset token is required")
+            @Email(message = "Please enter a valid email address")
+            String email,
+
+            String otp,
+
             String token,
 
             @NotBlank(message = "New password is required")

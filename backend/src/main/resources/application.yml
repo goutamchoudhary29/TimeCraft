@@ -107,8 +107,8 @@ app:
     email-verification-ttl: 24h
     password-reset-ttl: 30m
   admin:
-    email: ${ADMIN_EMAIL:}
-    password: ${ADMIN_PASSWORD:}
+    email: ${ADMIN_SEED_EMAIL:${ADMIN_EMAIL:}}
+    password: ${ADMIN_SEED_PASSWORD:${ADMIN_PASSWORD:}}
     first-name: ${ADMIN_FIRST_NAME:Store}
     last-name: ${ADMIN_LAST_NAME:Administrator}
   cloudinary:
