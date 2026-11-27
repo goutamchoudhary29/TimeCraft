@@ -23,7 +23,21 @@ public record AppProperties(
         Google google
 ) {
 
-    public record Jwt(String secret, String issuer, Duration accessTokenTtl, Duration refreshTokenTtl) {
+    public String effectiveBaseUrl() {
+        String base = notBlank(frontendBaseUrl) ? frontendBaseUrl.trim() : "http://localhost:8080";
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return base;
+    }
+
+    public record Jwt(String secret, String issuer, Duration accessTokenTtl, Long expirationMs, Duration refreshTokenTtl) {
+        public Duration effectiveAccessTokenTtl() {
+            if (expirationMs != null && expirationMs > 0) {
+                return Duration.ofMillis(expirationMs);
+            }
+            return accessTokenTtl != null ? accessTokenTtl : Duration.ofMinutes(15);
+        }
     }
 
     public record Cors(List<String> allowedOrigins) {

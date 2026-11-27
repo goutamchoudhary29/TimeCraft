@@ -64,6 +64,7 @@ public class RazorpayPaymentService {
     private final PaymentTransactionRepository transactionRepository;
     private final PaymentWebhookEventRepository webhookEventRepository;
     private final OrderService orderService;
+    private final PaymentAttemptHelper attemptHelper;
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
     private volatile HttpClient httpClient;
@@ -188,39 +189,9 @@ public class RazorpayPaymentService {
 
     @Transactional
     public PaymentOrderResponse createRazorpayOrder(Long userId, CreatePaymentRequest req) {
-        Order order = orderService.findCustomerOrderEntity(userId, String.valueOf(req.orderId()));
-        if (order.getPaymentStatus() == PaymentStatus.PAID) {
-            throw BusinessException.conflict("ORDER_ALREADY_PAID", "This order has already been paid");
-        }
-        if (order.getStatus() != OrderStatus.PENDING) {
-            throw BusinessException.badRequest("ORDER_NOT_PAYABLE",
-                    "Order is in status " + order.getStatus() + " and cannot accept payment");
-        }
-        if (order.getPaymentExpiresAt() != null && order.getPaymentExpiresAt().isBefore(Instant.now())) {
-            orderService.handlePaymentFailedOrExpired(order, "Payment reservation window expired", true);
-            throw BusinessException.badRequest("PAYMENT_WINDOW_EXPIRED",
-                    "Your reservation window expired. Please place a new order.");
-        }
-
-        if (order.getPaymentMethod() != PaymentMethod.RAZORPAY) {
-            order.setPaymentMethod(PaymentMethod.RAZORPAY);
-        }
-
-        List<Payment> openAttempts = paymentRepository.findByOrderIdOrderByCreatedAtDesc(order.getId());
-        java.util.Optional<Payment> existingCreated = java.util.Optional.empty();
-        for (Payment open : openAttempts) {
-            if (open.getStatus() == PaymentAttemptStatus.CREATED) {
-                if (Boolean.TRUE.equals(req.retry()) || !"RAZORPAY".equalsIgnoreCase(open.getProvider())) {
-                    open.setStatus(PaymentAttemptStatus.CANCELLED);
-                    open.setFailureReason("Superseded by Razorpay payment attempt");
-                    paymentRepository.save(open);
-                    recordTx(open, "PAYMENT_RETRY_SUPERSEDED", open.getAmount(), "CANCELLED",
-                            open.getProviderOrderId(), "Customer initiated a fresh Razorpay payment attempt");
-                } else if (existingCreated.isEmpty()) {
-                    existingCreated = java.util.Optional.of(open);
-                }
-            }
-        }
+        Order order = attemptHelper.loadPayableCustomerOrder(userId, req.orderId(), PaymentMethod.RAZORPAY);
+        java.util.Optional<Payment> existingCreated = attemptHelper
+                .reconcileOpenAttempts(order.getId(), "RAZORPAY", Boolean.TRUE.equals(req.retry()));
         var cfg = properties.razorpay();
         boolean useSandbox = !cfg.configured() && cfg.testSandboxEnabled();
 

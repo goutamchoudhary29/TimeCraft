@@ -1,10 +1,12 @@
 package com.timecraft.config;
 
+import com.timecraft.exception.BusinessException;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * PayU hosted checkout configuration bound from {@code timecraft.payment.payu.*}.
- * Defaults to PayU India's test sandbox environment when environment variables are unset.
+ * Credentials are supplied exclusively via environment variables ({@code PAYU_MERCHANT_KEY},
+ * {@code PAYU_MERCHANT_SALT}, {@code PAYU_BASE_URL}) with dev/test defaults confined to non-prod profiles.
  */
 @ConfigurationProperties(prefix = "timecraft.payment.payu")
 public record PayuProperties(
@@ -12,20 +14,31 @@ public record PayuProperties(
         String merchantSalt,
         String baseUrl
 ) {
-    public static final String DEFAULT_TEST_KEY = "otqqIX";
-    public static final String DEFAULT_TEST_SALT = "Vx6TKHBnxErLEvbrTmLZGMb4eVEAtyQM";
-    public static final String DEFAULT_TEST_BASE_URL = "https://test.payu.in";
+    public static final String DEFAULT_PROD_ACTION_URL = "https://secure.payu.in/_payment";
+
+    public boolean configured() {
+        return merchantKey != null && !merchantKey.isBlank()
+                && merchantSalt != null && !merchantSalt.isBlank();
+    }
 
     public String effectiveMerchantKey() {
-        return (merchantKey != null && !merchantKey.isBlank()) ? merchantKey.trim() : DEFAULT_TEST_KEY;
+        if (merchantKey == null || merchantKey.isBlank()) {
+            throw BusinessException.serviceUnavailable("PAYU_NOT_CONFIGURED",
+                    "PayU credentials (PAYU_MERCHANT_KEY and PAYU_MERCHANT_SALT) are not configured.");
+        }
+        return merchantKey.trim();
     }
 
     public String effectiveMerchantSalt() {
-        return (merchantSalt != null && !merchantSalt.isBlank()) ? merchantSalt.trim() : DEFAULT_TEST_SALT;
+        if (merchantSalt == null || merchantSalt.isBlank()) {
+            throw BusinessException.serviceUnavailable("PAYU_NOT_CONFIGURED",
+                    "PayU credentials (PAYU_MERCHANT_KEY and PAYU_MERCHANT_SALT) are not configured.");
+        }
+        return merchantSalt.trim();
     }
 
     public String effectiveBaseUrl() {
-        String base = (baseUrl != null && !baseUrl.isBlank()) ? baseUrl.trim() : DEFAULT_TEST_BASE_URL;
+        String base = (baseUrl != null && !baseUrl.isBlank()) ? baseUrl.trim() : DEFAULT_PROD_ACTION_URL;
         while (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }

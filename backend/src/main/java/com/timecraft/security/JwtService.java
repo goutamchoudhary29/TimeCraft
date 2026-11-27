@@ -44,7 +44,7 @@ public class JwtService {
 
     public String generateCustomerAccessToken(User user) {
         Instant now = Instant.now();
-        Instant expiry = now.plus(properties.jwt().accessTokenTtl());
+        Instant expiry = now.plus(properties.jwt().effectiveAccessTokenTtl());
         return Jwts.builder()
                 .issuer(properties.jwt().issuer())
                 .subject(String.valueOf(user.getId()))
@@ -71,6 +71,6 @@ public class JwtService {
     }
 
     public long accessTokenTtlSeconds() {
-        return properties.jwt().accessTokenTtl().toSeconds();
+        return properties.jwt().effectiveAccessTokenTtl().toSeconds();
     }
 }

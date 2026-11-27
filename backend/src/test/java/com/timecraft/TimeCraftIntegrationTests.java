@@ -1641,6 +1641,50 @@ class TimeCraftIntegrationTests {
                                 .andExpect(status().isOk());
         }
 
+        @Test
+        @org.junit.jupiter.api.Order(12)
+        @DisplayName("28. Production Hardening: Env Config, PayU Empty-Secret Guard, Simulation Gate & Live CORS")
+        void productionHardeningAndConfigGuards() throws Exception {
+                // 1. PayuProperties refuses empty credentials (no hardcoded fallback)
+                var emptyPayu = new com.timecraft.config.PayuProperties("", "", "");
+                assertThat(emptyPayu.configured()).isFalse();
+                assertThat(emptyPayu.effectiveActionUrl()).isEqualTo("https://secure.payu.in/_payment");
+                org.junit.jupiter.api.Assertions.assertThrows(
+                                com.timecraft.exception.BusinessException.class,
+                                emptyPayu::effectiveMerchantKey);
+                org.junit.jupiter.api.Assertions.assertThrows(
+                                com.timecraft.exception.BusinessException.class,
+                                emptyPayu::effectiveMerchantSalt);
+
+                // 2. JWT expiration honours JWT_EXPIRATION_MS (900000ms = 900s default)
+                assertThat(jwtService.accessTokenTtlSeconds()).isEqualTo(900L);
+
+                // 3. Sandbox simulation endpoint is strictly blocked when keys are configured / simulation disabled
+                String token = registerAndGetAccessToken("prodguard@timecraft.test");
+                mockMvc.perform(post("/api/v1/payments/sandbox-authorize")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"orderId\":1,\"razorpayOrderId\":\"order_test_block\",\"paymentMethod\":\"UPI\"}"))
+                                .andExpect(status().isForbidden());
+
+                // 4. PayU callback CORS accepts live https://secure.payu.in, https://test.payu.in, and Origin: null
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .options("/api/v1/payments/payu/callback")
+                                .header("Origin", "https://secure.payu.in")
+                                .header("Access-Control-Request-Method", "POST"))
+                                .andExpect(status().isOk())
+                                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                                                .header().string("Access-Control-Allow-Origin", "https://secure.payu.in"));
+
+                mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .options("/api/v1/payments/payu/callback")
+                                .header("Origin", "null")
+                                .header("Access-Control-Request-Method", "POST"))
+                                .andExpect(status().isOk())
+                                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                                                .header().string("Access-Control-Allow-Origin", "null"));
+        }
+
         private String registerAndGetAccessToken(String email) throws Exception {
                 RegisterRequest reg = new RegisterRequest("Test", "Collector", email, "WatchPass123", "+91 9876543210");
                 mockMvc.perform(post("/api/v1/auth/register")

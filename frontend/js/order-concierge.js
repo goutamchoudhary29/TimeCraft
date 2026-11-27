@@ -838,7 +838,7 @@
                               : TC.escapeHtml(item.productName);
                           const imgTag = `<img src="${TC.escapeHtml(item.imageUrl || FALLBACK_WATCH_IMG)}"
                                                alt="${TC.escapeHtml(item.brandName + ' ' + item.productName)}"
-                                               loading="lazy"
+                                               loading="lazy" decoding="async"
                                                onerror="this.onerror=null;this.src='${FALLBACK_WATCH_IMG}';">`;
                           return `
                             <article class="tc-ordered-watch-item">

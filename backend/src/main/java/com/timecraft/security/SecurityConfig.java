@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -71,6 +72,7 @@ public class SecurityConfig {
     private final AuditLogService auditLogService;
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
+    private final Environment environment;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -259,37 +261,50 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        boolean isProd = java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod");
+
+        java.util.LinkedHashSet<String> configuredOrigins = new java.util.LinkedHashSet<>();
+        if (properties.cors() != null && properties.cors().allowedOrigins() != null) {
+            for (String origin : properties.cors().allowedOrigins()) {
+                if (origin != null && !origin.isBlank()) {
+                    configuredOrigins.add(origin.trim());
+                }
+            }
+        }
+        String appBaseUrl = properties.effectiveBaseUrl();
+        if (appBaseUrl != null && !appBaseUrl.isBlank()) {
+            configuredOrigins.add(appBaseUrl);
+        }
+
         // Payment gateway browser callbacks & webhooks (PayU surl/furl POST/GET redirects send
-        // Origin: https://test.payu.in, https://secure.payu.in, or Origin: null after 3DS redirects).
+        // Origin: https://secure.payu.in, https://test.payu.in, or Origin: null after 3DS redirects).
+        java.util.LinkedHashSet<String> callbackOrigins = new java.util.LinkedHashSet<>(configuredOrigins);
+        callbackOrigins.add("https://secure.payu.in");
+        callbackOrigins.add("https://test.payu.in");
+        callbackOrigins.add("https://*.payu.in");
+        callbackOrigins.add("null");
+        if (!isProd) {
+            callbackOrigins.add("http://localhost:*");
+            callbackOrigins.add("https://localhost:*");
+        }
+
         CorsConfiguration gatewayCallbackCors = new CorsConfiguration();
         gatewayCallbackCors.setAllowCredentials(false);
-        gatewayCallbackCors.setAllowedOriginPatterns(List.of(
-                "https://test.payu.in",
-                "https://secure.payu.in",
-                "https://*.payu.in",
-                "http://localhost:*",
-                "https://localhost:*",
-                "null",
-                "*"
-        ));
-        gatewayCallbackCors.setAllowedOrigins(List.of(
-                "https://test.payu.in",
-                "https://secure.payu.in",
-                "http://localhost:8080",
-                "null",
-                "*"
-        ));
+        gatewayCallbackCors.setAllowedOriginPatterns(new java.util.ArrayList<>(callbackOrigins));
         gatewayCallbackCors.setAllowedMethods(List.of("GET", "POST", "OPTIONS", "HEAD"));
         gatewayCallbackCors.setAllowedHeaders(List.of("*"));
         gatewayCallbackCors.setMaxAge(3600L);
 
+        java.util.LinkedHashSet<String> apiOrigins = new java.util.LinkedHashSet<>(configuredOrigins);
+        if (!isProd) {
+            apiOrigins.add("http://localhost:*");
+            apiOrigins.add("https://*.lhr.life");
+            apiOrigins.add("https://*.trycloudflare.com");
+            apiOrigins.add("https://*.devtunnels.ms");
+        }
+
         CorsConfiguration config = new CorsConfiguration();
-        var patterns = new java.util.ArrayList<>(properties.cors().allowedOrigins());
-        patterns.add("http://localhost:*");
-        patterns.add("https://*.lhr.life");
-        patterns.add("https://*.trycloudflare.com");
-        patterns.add("https://*.devtunnels.ms");
-        config.setAllowedOriginPatterns(patterns);
+        config.setAllowedOriginPatterns(new java.util.ArrayList<>(apiOrigins));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Guest-Token", "X-Idempotency-Key", "X-XSRF-TOKEN"));
         config.setExposedHeaders(List.of("X-Guest-Token"));

@@ -8,7 +8,7 @@ hs_err_pid*
 
 # Environment & Secrets
 .env
-**/run-dev.cmd
+backend/run-dev.cmd
 .env.*
 !.env.example
 

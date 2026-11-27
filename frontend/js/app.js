@@ -413,7 +413,7 @@
               <a href="/pages/product-details.html?slug=${encodeURIComponent(p.slug || p.id)}" class="d-block w-100 h-100">
                 <img src="${escapeHtml(p.primaryImageUrl || FALLBACK_CARD_IMG)}"
                      alt="${escapeHtml(p.brandName ? p.brandName + ' ' + p.name : p.name)}"
-                     loading="lazy"
+                     loading="lazy" decoding="async"
                      onerror="this.onerror=null;this.src='${FALLBACK_CARD_IMG}';">
               </a>
               <button type="button" class="tc-quickview-bar"
@@ -1445,18 +1445,41 @@
             }).catch(() => {});
         }
 
+        function applyStoreConfigToDom(cfg) {
+            if (!cfg) return;
+            const ann = document.getElementById('tcAnnouncementBar');
+            if (ann && cfg['content.announcement']) ann.textContent = cfg['content.announcement'];
+            const em = document.getElementById('tcFooterEmail');
+            if (em && cfg['store.support_email']) em.textContent = cfg['store.support_email'];
+            const ph = document.getElementById('tcFooterPhone');
+            if (ph && cfg['store.support_phone']) ph.textContent = cfg['store.support_phone'];
+            window.TC_STORE_CONFIG = cfg;
+        }
+
+        // Cache /store/config in sessionStorage (60s TTL) to eliminate redundant page-load calls
+        let cachedStoreCfg = null;
         try {
-            const cfg = await api('/store/config');
-            if (cfg) {
-                const ann = document.getElementById('tcAnnouncementBar');
-                if (ann && cfg['content.announcement']) ann.textContent = cfg['content.announcement'];
-                const em = document.getElementById('tcFooterEmail');
-                if (em && cfg['store.support_email']) em.textContent = cfg['store.support_email'];
-                const ph = document.getElementById('tcFooterPhone');
-                if (ph && cfg['store.support_phone']) ph.textContent = cfg['store.support_phone'];
-                window.TC_STORE_CONFIG = cfg;
+            const raw = sessionStorage.getItem('tc_store_cfg_cache');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.data && (Date.now() - Number(parsed.ts || 0)) < 60000) {
+                    cachedStoreCfg = parsed.data;
+                }
             }
         } catch {}
+
+        if (cachedStoreCfg) {
+            applyStoreConfigToDom(cachedStoreCfg);
+        } else {
+            api('/store/config').then(cfg => {
+                if (cfg) {
+                    applyStoreConfigToDom(cfg);
+                    try {
+                        sessionStorage.setItem('tc_store_cfg_cache', JSON.stringify({ ts: Date.now(), data: cfg }));
+                    } catch {}
+                }
+            }).catch(() => {});
+        }
     }
 
     function initScrollAnimations() {
@@ -1507,12 +1530,23 @@
         });
     }
 
+    let publicConfigPromise = null;
+    function getPublicAuthConfig() {
+        if (!publicConfigPromise) {
+            publicConfigPromise = api('/auth/public-config').catch(() => {
+                publicConfigPromise = null;
+                return null;
+            });
+        }
+        return publicConfigPromise;
+    }
+
     async function mountGoogleAuthButton(hostId, redirectUrl = '/pages/profile.html') {
         const host = document.getElementById(hostId);
         if (!host) return;
         let googleClientId = '';
         try {
-            const cfg = await api('/auth/public-config');
+            const cfg = await getPublicAuthConfig();
             googleClientId = (cfg && (cfg.googleClientId || cfg.clientId) || '').trim();
         } catch {}
 

@@ -93,14 +93,15 @@ server:
     enabled: true
 
 app:
-  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:8080}
+  frontend-base-url: ${APP_BASE_URL:${FRONTEND_BASE_URL:http://localhost:8080}}
   jwt:
     secret: ${JWT_SECRET:}
     issuer: timecraft
     access-token-ttl: ${JWT_ACCESS_TTL:15m}
+    expiration-ms: ${JWT_EXPIRATION_MS:900000}
     refresh-token-ttl: ${JWT_REFRESH_TTL:14d}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8080,http://localhost:5173}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:${APP_BASE_URL:http://localhost:8080}}
   cookies:
     secure: ${COOKIE_SECURE:false}
     same-site: Strict
@@ -123,7 +124,7 @@ app:
     key-secret: ${RAZORPAY_KEY_SECRET:}
     webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
     api-base-url: https://api.razorpay.com/v1
-    test-sandbox-enabled: ${RAZORPAY_TEST_SANDBOX:false}
+    test-sandbox-enabled: ${PAYMENT_ALLOW_TEST_SIMULATION:${RAZORPAY_TEST_SANDBOX:false}}
   mail:
     enabled: ${MAIL_ENABLED:false}
     from: ${MAIL_FROM:TimeCraft <no-reply@timecraft.example>}
@@ -145,9 +146,9 @@ timecraft:
     max-cod-amount: ${MAX_COD_AMOUNT:500000}
   payment:
     payu:
-      merchant-key: ${PAYU_MERCHANT_KEY:otqqIX}
-      merchant-salt: ${PAYU_MERCHANT_SALT:Vx6TKHBnxErLEvbrTmLZGMb4eVEAtyQM}
-      base-url: ${PAYU_BASE_URL:https://test.payu.in}
+      merchant-key: ${PAYU_MERCHANT_KEY:}
+      merchant-salt: ${PAYU_MERCHANT_SALT:}
+      base-url: ${PAYU_BASE_URL:https://secure.payu.in/_payment}
 
 management:
   endpoints:
@@ -200,9 +201,15 @@ app:
     # Development-only fallback. Production refuses to start without JWT_SECRET.
     secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-0123456789abcdef0123456789}
   razorpay:
-    test-sandbox-enabled: ${RAZORPAY_TEST_SANDBOX:true}
+    test-sandbox-enabled: ${PAYMENT_ALLOW_TEST_SIMULATION:${RAZORPAY_TEST_SANDBOX:true}}
   mail:
     log-links: true
+timecraft:
+  payment:
+    payu:
+      merchant-key: ${PAYU_MERCHANT_KEY:otqqIX}
+      merchant-salt: ${PAYU_MERCHANT_SALT:Vx6TKHBnxErLEvbrTmLZGMb4eVEAtyQM}
+      base-url: ${PAYU_BASE_URL:https://test.payu.in/_payment}
 management:
   health:
     redis:
@@ -227,8 +234,14 @@ server:
 app:
   cookies:
     secure: true
+  razorpay:
+    test-sandbox-enabled: ${PAYMENT_ALLOW_TEST_SIMULATION:false}
   mail:
     enabled: ${MAIL_ENABLED:true}
+timecraft:
+  payment:
+    payu:
+      base-url: ${PAYU_BASE_URL:https://secure.payu.in/_payment}
 logging:
   level:
     com.timecraft: INFO

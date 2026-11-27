@@ -48,6 +48,7 @@ public class PayuPaymentService {
     private final PaymentTransactionRepository transactionRepository;
     private final OrderRepository orderRepository;
     private final OrderService orderService;
+    private final PaymentAttemptHelper attemptHelper;
     private final PayuProperties payuProperties;
     private final AppProperties appProperties;
 
@@ -117,41 +118,10 @@ public class PayuPaymentService {
 
     @Transactional
     public PayuInitiateResponse initiatePayment(Long userId, PayuInitiateRequest req, String requestBaseUrl) {
-        Order order = orderService.findCustomerOrderEntity(userId, String.valueOf(req.orderId()));
-        if (order.getPaymentStatus() == PaymentStatus.PAID) {
-            throw BusinessException.conflict("ORDER_ALREADY_PAID", "This order has already been paid");
-        }
-        if (order.getStatus() != OrderStatus.PENDING) {
-            throw BusinessException.badRequest("ORDER_NOT_PAYABLE",
-                    "Order is in status " + order.getStatus() + " and cannot accept payment");
-        }
-        if (order.getPaymentExpiresAt() != null && order.getPaymentExpiresAt().isBefore(Instant.now())) {
-            orderService.handlePaymentFailedOrExpired(order, "Payment reservation window expired", true);
-            throw BusinessException.badRequest("PAYMENT_WINDOW_EXPIRED",
-                    "Your reservation window expired. Please place a new order.");
-        }
-
-        if (order.getPaymentMethod() != PaymentMethod.PAYU) {
-            order.setPaymentMethod(PaymentMethod.PAYU);
-            order = orderRepository.save(order);
-        }
-
-        // Cancel any open CREATED attempts from another gateway or when explicitly retrying
-        List<Payment> existingAttempts = paymentRepository.findByOrderIdOrderByCreatedAtDesc(order.getId());
-        Payment reusablePayuAttempt = null;
-        for (Payment attempt : existingAttempts) {
-            if (attempt.getStatus() == PaymentAttemptStatus.CREATED) {
-                if (Boolean.TRUE.equals(req.retry()) || !"PAYU".equalsIgnoreCase(attempt.getProvider())) {
-                    attempt.setStatus(PaymentAttemptStatus.CANCELLED);
-                    attempt.setFailureReason("Superseded by PayU payment initiation");
-                    paymentRepository.save(attempt);
-                    recordTx(attempt, "PAYMENT_SUPERSEDED", attempt.getAmount(), "CANCELLED",
-                            attempt.getProviderOrderId(), "Superseded by fresh PayU payment attempt");
-                } else if (reusablePayuAttempt == null) {
-                    reusablePayuAttempt = attempt;
-                }
-            }
-        }
+        Order order = attemptHelper.loadPayableCustomerOrder(userId, req.orderId(), PaymentMethod.PAYU);
+        Payment reusablePayuAttempt = attemptHelper
+                .reconcileOpenAttempts(order.getId(), "PAYU", Boolean.TRUE.equals(req.retry()))
+                .orElse(null);
 
         BigDecimal exactAmount = Money.of(order.getGrandTotal());
         String amountStr = exactAmount.toPlainString();
@@ -174,7 +144,7 @@ public class PayuPaymentService {
                     .status(PaymentAttemptStatus.CREATED)
                     .build();
             payment = paymentRepository.save(payment);
-            recordTx(payment, "PAYU_ORDER_CREATED", exactAmount, "CREATED", txnid,
+            attemptHelper.recordTransaction(payment, "PAYU_ORDER_CREATED", exactAmount, "CREATED", txnid,
                     "PayU payment initiated for " + order.getOrderNumber());
         }
 
@@ -189,9 +159,7 @@ public class PayuPaymentService {
         String udf4 = "";
         String udf5 = "";
 
-        String baseUrl = (requestBaseUrl != null && !requestBaseUrl.isBlank())
-                ? trimTrailingSlash(requestBaseUrl)
-                : trimTrailingSlash(appProperties.frontendBaseUrl());
+        String baseUrl = resolveCallbackBaseUrl(requestBaseUrl);
         String callbackUrl = baseUrl + "/api/v1/payments/payu/callback";
 
         String hash = computeRequestHash(
@@ -516,17 +484,22 @@ public class PayuPaymentService {
         }
     }
 
+    private String resolveCallbackBaseUrl(String requestBaseUrl) {
+        String configured = appProperties.effectiveBaseUrl();
+        boolean configuredIsPublic = configured != null && !configured.isBlank()
+                && !configured.contains("localhost") && !configured.contains("127.0.0.1");
+        if (configuredIsPublic) {
+            return configured;
+        }
+        if (requestBaseUrl != null && !requestBaseUrl.isBlank()) {
+            return trimTrailingSlash(requestBaseUrl);
+        }
+        return configured;
+    }
+
     private void recordTx(Payment payment, String type, BigDecimal amount, String status,
                           String reference, String details) {
-        PaymentTransaction tx = PaymentTransaction.builder()
-                .payment(payment)
-                .transactionType(type)
-                .amount(amount)
-                .status(status)
-                .providerReference(reference)
-                .details(details)
-                .build();
-        transactionRepository.save(tx);
+        attemptHelper.recordTransaction(payment, type, amount, status, reference, details);
     }
 
     private static String extractFirstName(String fullName) {
