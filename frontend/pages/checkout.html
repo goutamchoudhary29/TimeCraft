@@ -10,9 +10,9 @@
 </head>
 <body>
 <div id="tcHeader"></div>
-<main class="container py-5">
+<main class="container py-4 py-lg-5">
     <div class="border-bottom pb-3 mb-4">
-        <div class="tc-eyebrow">Stock Reservation &amp; Razorpay Verification</div>
+        <div class="tc-eyebrow">Stock Reservation · Razorpay &amp; PayU Verification</div>
         <h1 class="display-6 tc-serif mb-0">Secure Horological Checkout</h1>
     </div>
     <div id="checkoutHost"></div>
@@ -23,17 +23,241 @@
 document.addEventListener('DOMContentLoaded', async () => {
     await TC.mountChrome();
     if (!TC.getUser()) {
-        window.location.href = '/pages/login.html?next=/pages/checkout.html';
+        window.location.href = '/pages/login.html?next=' + encodeURIComponent(window.location.pathname + window.location.search);
         return;
     }
+
     const host = document.getElementById('checkoutHost');
+    const urlParams = new URLSearchParams(window.location.search);
+    const resumeOrderParam = urlParams.get('order') || '';
+    const maxCodRaw = TC.getMaxCodAmount();
+
+    const exactInr = new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+
+    function fmtMoney(val) {
+        if (val === null || val === undefined || val === '') return '₹0.00';
+        const num = Number(val);
+        return Number.isNaN(num) ? ('₹' + TC.escapeHtml(String(val))) : exactInr.format(num);
+    }
+
+    function renderPendingOrderRecovery(order, failureState = {}) {
+        if (!order) return;
+        if (order.status === 'CONFIRMED' || order.paymentStatus === 'PAID' || order.paymentMethod === 'COD') {
+            try { sessionStorage.removeItem('tc_pending_order'); } catch {}
+            const methodSuffix = order.paymentMethod ? `&method=${encodeURIComponent(order.paymentMethod)}` : '';
+            window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(order.orderNumber)}${methodSuffix}`;
+            return;
+        }
+
+        try {
+            sessionStorage.setItem('tc_pending_order', order.orderNumber);
+            const nextUrl = `/pages/checkout.html?order=${encodeURIComponent(order.orderNumber)}`;
+            if (window.location.pathname + window.location.search !== nextUrl) {
+                window.history.replaceState(null, '', nextUrl);
+            }
+        } catch {}
+
+        const activeGateway = String(failureState.gateway || order.paymentMethod || 'RAZORPAY').toUpperCase();
+        const isPayuLast = activeGateway === 'PAYU';
+        const isCancelled = failureState.status === 'cancelled';
+        const headline = failureState.status === 'failed'
+            ? (isPayuLast ? 'PayU Payment Could Not Be Completed' : 'Payment Could Not Be Completed')
+            : (isCancelled ? 'Payment Window Closed — Order Still Reserved' : 'Complete Payment for Your Reserved Order');
+        const detailReason = failureState.reason
+            || 'Your online payment attempt did not complete. Your timepiece stock reservation remains active on this order.';
+        const codAllowed = TC.isOrderCodEligible(order.grandTotal, maxCodRaw);
+        const expiryText = order.paymentExpiresAt
+            ? new Date(order.paymentExpiresAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+            : '15 minutes';
+
+        host.innerHTML = `
+          <div class="row g-4">
+            <div class="col-lg-7">
+              <div class="tc-payment-recovery-banner ${isCancelled ? 'is-cancelled' : ''} mb-3" role="alert" aria-live="polite">
+                <div class="tc-eyebrow mb-1" style="color:${isCancelled ? '#8F6F3E' : '#A63A3A'};">
+                  ${isCancelled ? 'Payment Paused · No Duplicate Order' : (activeGateway + ' Payment Failed · Reservation Active')}
+                </div>
+                <h2 class="h3 tc-serif mb-2">${TC.escapeHtml(headline)}</h2>
+                <p class="small text-muted mb-3">
+                  Order <strong class="tc-num text-dark">${TC.escapeHtml(order.orderNumber)}</strong>
+                  (<strong class="tc-price text-dark">${fmtMoney(order.grandTotal)}</strong>) is safely held until
+                  <strong class="tc-num text-dark">${TC.escapeHtml(expiryText)}</strong>.<br>
+                  <span class="text-dark">${TC.escapeHtml(detailReason)}</span>
+                </p>
+
+                <div class="tc-recovery-actions mb-3">
+                  ${isPayuLast ? `
+                    <button type="button" id="retryPayuBtn" class="btn-tc-primary">
+                      Retry Payment via PayU · ${fmtMoney(order.grandTotal)}
+                    </button>
+                    <button type="button" id="retryPaymentBtn" class="btn-tc-secondary" style="border-color:#1A1A1A;color:#1A1A1A;">
+                      Switch to Razorpay
+                    </button>
+                  ` : `
+                    <button type="button" id="retryPaymentBtn" class="btn-tc-primary">
+                      Retry Payment · ${fmtMoney(order.grandTotal)}
+                    </button>
+                    <button type="button" id="switchToPayuBtn" class="btn-tc-secondary" style="border-color:#1A1A1A;color:#1A1A1A;">
+                      Pay with PayU Instead
+                    </button>
+                  `}
+                  <a href="/pages/order-details.html?order=${encodeURIComponent(order.orderNumber)}" class="btn-tc-secondary">
+                    Inspect Order
+                  </a>
+                </div>
+
+                ${codAllowed ? `
+                  <div class="tc-cod-fallback-card mt-3">
+                    <div class="tc-eyebrow mb-1">Safe Cash on Delivery Option</div>
+                    <div class="fw-semibold small mb-1">Prefer to pay at your doorstep instead?</div>
+                    <p class="small text-muted mb-3">
+                      Your order total (<strong class="tc-price text-dark">${fmtMoney(order.grandTotal)}</strong>) is within TimeCraft's
+                      <strong class="tc-price text-dark">${TC.formatInr(maxCodRaw)}</strong> Cash on Delivery limit. Switch this existing order to COD without creating a duplicate booking.
+                    </p>
+                    <div class="tc-recovery-actions">
+                      <button type="button" id="switchToCodBtn" class="btn-tc-secondary" style="border-color:#1A1A1A;color:#1A1A1A;">
+                        Switch to Cash on Delivery (COD)
+                      </button>
+                    </div>
+                  </div>
+                ` : `
+                  <div class="tc-cod-cap-notice mt-3">
+                    <div class="fw-semibold small mb-1">Cash on Delivery Limit (${TC.formatInr(maxCodRaw)})</div>
+                    <p class="small text-muted mb-2">
+                      For insured horological security, Cash on Delivery is available for orders up to
+                      <strong class="tc-price text-dark">${TC.formatInr(maxCodRaw)}</strong>. Because this order totals
+                      <strong class="tc-price text-dark">${fmtMoney(order.grandTotal)}</strong>, please use
+                      <strong>Retry Payment</strong>, <strong>Pay with PayU</strong>, or reach out to our Concierge team for assistance.
+                    </p>
+                    <a href="/pages/contact.html?order=${encodeURIComponent(order.orderNumber)}" class="small fw-semibold text-uppercase" style="letter-spacing:0.08em;color:#8F6F3E;">
+                      Contact Concierge Support &rarr;
+                    </a>
+                  </div>
+                `}
+              </div>
+
+              <div class="tc-panel">
+                <h3 class="h5 tc-serif mb-2">Insured Delivery Destination</h3>
+                <div class="small">
+                  <div class="fw-semibold">${TC.escapeHtml(order.shipFullName)}</div>
+                  <div>${TC.escapeHtml(order.shipLine1)}${order.shipLine2 ? ', ' + TC.escapeHtml(order.shipLine2) : ''}</div>
+                  <div>${TC.escapeHtml(order.shipCity)}, ${TC.escapeHtml(order.shipState)} - <span class="tc-num">${TC.escapeHtml(order.shipPostalCode)}</span></div>
+                  <div class="text-muted">Phone: ${TC.escapeHtml(order.shipPhone)}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-5">
+              <div class="tc-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h2 class="h4 tc-serif mb-0">Reserved Order Summary</h2>
+                  <span class="badge bg-dark rounded-0 tc-num">${TC.escapeHtml(order.orderNumber)}</span>
+                </div>
+                <div class="vstack gap-2 mb-3 border-bottom pb-3">
+                  ${(order.items || []).map(i => `
+                    <div class="d-flex justify-content-between align-items-center gap-2 small">
+                      <span>${TC.escapeHtml(i.brandName)} ${TC.escapeHtml(i.productName)} × ${i.quantity}</span>
+                      <span class="tc-price fw-medium text-nowrap">${fmtMoney(i.lineTotal)}</span>
+                    </div>`).join('')}
+                </div>
+                <div class="small vstack gap-2 tc-price">
+                  <div class="d-flex justify-content-between"><span>Subtotal</span><span>${fmtMoney(order.subtotal)}</span></div>
+                  <div class="d-flex justify-content-between"><span>Discount ${order.couponCode ? '(' + TC.escapeHtml(order.couponCode) + ')' : ''}</span><span>- ${fmtMoney(order.discountTotal)}</span></div>
+                  <div class="d-flex justify-content-between"><span>${order.taxInclusive ? 'Included GST' : 'GST'}</span><span>${fmtMoney(order.taxTotal)}</span></div>
+                  <div class="d-flex justify-content-between"><span>Insured Armoured Shipping</span><span>${Number(order.shippingTotal) === 0 ? 'Complimentary' : fmtMoney(order.shippingTotal)}</span></div>
+                  <div class="d-flex justify-content-between border-top pt-2 fs-5 fw-semibold">
+                    <span>Total Payable</span><span>${fmtMoney(order.grandTotal)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        document.getElementById('retryPaymentBtn')?.addEventListener('click', async (ev) => {
+            const retryBtn = ev.currentTarget;
+            const origLabel = retryBtn.textContent;
+            retryBtn.disabled = true;
+            retryBtn.textContent = 'Opening Secure Razorpay Checkout…';
+            try {
+                await TC.launchOrderRazorpayPayment(order, {
+                    retry: true,
+                    onSuccess: (confirmedOrder) => {
+                        window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent((confirmedOrder || order).orderNumber)}`;
+                    },
+                    onFailure: (failCtx) => {
+                        renderPendingOrderRecovery(failCtx.order || order, Object.assign({ gateway: 'RAZORPAY' }, failCtx));
+                    }
+                });
+            } catch (err) {
+                retryBtn.disabled = false;
+                retryBtn.textContent = origLabel;
+                TC.toast(err.message, 'error');
+            }
+        });
+
+        const handlePayuTrigger = async (ev) => {
+            const payuBtn = ev.currentTarget;
+            const origLabel = payuBtn.textContent;
+            payuBtn.disabled = true;
+            payuBtn.textContent = 'Redirecting to PayU Secure Checkout…';
+            try {
+                await TC.launchOrderPayuPayment(order, { retry: true });
+            } catch (err) {
+                payuBtn.disabled = false;
+                payuBtn.textContent = origLabel;
+                TC.toast(err.message, 'error');
+            }
+        };
+        document.getElementById('switchToPayuBtn')?.addEventListener('click', handlePayuTrigger);
+        document.getElementById('retryPayuBtn')?.addEventListener('click', handlePayuTrigger);
+
+        document.getElementById('switchToCodBtn')?.addEventListener('click', async (ev) => {
+            const codBtn = ev.currentTarget;
+            codBtn.disabled = true;
+            codBtn.textContent = 'Confirming Cash on Delivery…';
+            try {
+                const updated = await TC.switchOrderToCod(order.orderNumber);
+                TC.toast('Order confirmed via Cash on Delivery');
+                window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(updated.orderNumber)}&method=COD`;
+            } catch (err) {
+                codBtn.disabled = false;
+                codBtn.textContent = 'Switch to Cash on Delivery (COD)';
+                TC.toast(err.message, 'error');
+            }
+        });
+    }
 
     try {
+        if (resumeOrderParam) {
+            const existingOrder = await TC.api('/orders/' + encodeURIComponent(resumeOrderParam));
+            if (existingOrder && existingOrder.status === 'PENDING') {
+                renderPendingOrderRecovery(existingOrder, {
+                    status: urlParams.get('status') || 'pending',
+                    gateway: urlParams.get('gateway') || existingOrder.paymentMethod || 'RAZORPAY',
+                    reason: urlParams.get('reason') || ''
+                });
+                return;
+            }
+            if (existingOrder && existingOrder.status === 'CONFIRMED') {
+                const m = existingOrder.paymentMethod ? `&method=${encodeURIComponent(existingOrder.paymentMethod)}` : '';
+                window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(existingOrder.orderNumber)}${m}`;
+                return;
+            }
+        }
+
         const [cart, addresses, profile] = await Promise.all([
             TC.api('/cart'),
             TC.api('/addresses'),
             TC.api('/customer/profile').catch(() => null)
         ]);
+
         if (profile && !profile.emailVerified) {
             host.innerHTML = `
               <div class="tc-panel text-center py-5" style="max-width:560px;margin:0 auto;border-top:4px solid #B08D57;">
@@ -41,7 +265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <h2 class="tc-serif mb-2">Verify Your Email Before Ordering</h2>
                 <p class="text-muted small mb-4">
                   Your account (<strong>${TC.escapeHtml(profile.email)}</strong>) is not yet verified.
-                  Click below to receive a 6-digit OTP in your email and unlock Razorpay &amp; Cash on Delivery checkout.
+                  Click below to receive a 6-digit OTP in your email and unlock Razorpay, PayU &amp; Cash on Delivery checkout.
                 </p>
                 <button type="button" id="chkVerifyEmailBtn" class="btn-tc-primary">Send 6-Digit OTP &amp; Verify Now &rarr;</button>
               </div>`;
@@ -61,18 +285,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             return;
         }
+
         if (!cart.items || !cart.items.length) {
+            let savedPending = '';
+            try { savedPending = sessionStorage.getItem('tc_pending_order') || ''; } catch {}
+            if (savedPending) {
+                try {
+                    const pendingOrd = await TC.api('/orders/' + encodeURIComponent(savedPending));
+                    if (pendingOrd && pendingOrd.status === 'PENDING') {
+                        renderPendingOrderRecovery(pendingOrd, { status: 'pending', gateway: pendingOrd.paymentMethod });
+                        return;
+                    }
+                } catch {}
+            }
             host.innerHTML = `<div class="tc-panel text-center py-5"><h2 class="tc-serif">Your bag is empty</h2><a href="/pages/shop.html" class="btn-tc-primary mt-2">Explore Watches</a></div>`;
             return;
         }
+
         const t = cart.totals;
+        const codEligibleCart = TC.isOrderCodEligible(t.grandTotal, maxCodRaw);
+        const withinRazorpayTestCap = TC.isOrderCodEligible(t.grandTotal, '50000.00');
         const defaultAddr = addresses.find(a => a.defaultAddress) || addresses[0];
 
         host.innerHTML = `
         <div class="row g-4">
           <div class="col-lg-7">
             <div class="tc-panel mb-3">
-              <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                 <h2 class="h4 tc-serif mb-0">1. Insured Delivery Destination</h2>
                 <a href="/pages/addresses.html" class="small text-uppercase">Manage Addresses &rarr;</a>
               </div>
@@ -83,12 +322,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="vstack gap-2">
                   ${addresses.map(a => `
                     <label class="border p-3 d-flex gap-2 align-items-start" style="cursor:pointer;">
-                      <input type="radio" name="selectedAddress" value="${a.id}" class="mt-1" ${defaultAddr && a.id === defaultAddr.id ? 'checked' : ''}>
+                      <input type="radio" name="selectedAddress" value="${a.id}" data-pin="${TC.escapeHtml(a.postalCode || '')}" class="mt-1" ${defaultAddr && a.id === defaultAddr.id ? 'checked' : ''}>
                       <div class="small">
                         <div class="fw-semibold">${TC.escapeHtml(a.fullName)} (${a.addressType})</div>
                         <div>${TC.escapeHtml(a.line1)} ${a.line2 ? ', ' + TC.escapeHtml(a.line2) : ''}</div>
                         <div>${TC.escapeHtml(a.city)}, ${TC.escapeHtml(a.state)} - <span class="tc-num">${TC.escapeHtml(a.postalCode)}</span></div>
-                        <div class="text-muted">Phone: ${TC.escapeHtml(a.phone)}</div>
+                        <div class="text-muted">Phone: ${TC.escapeHtml(a.shipPhone || a.phone)}</div>
                       </div>
                     </label>`).join('')}
                 </div>`}
@@ -96,24 +335,41 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="tc-panel mb-3">
               <h2 class="h4 tc-serif mb-3">2. Payment Method</h2>
               <div class="row g-3" id="paymentMethodCards">
-                <div class="col-md-6">
-                  <label class="border p-3 d-block h-100 tc-pay-choice active" data-method="RAZORPAY" style="cursor:pointer;border-color:#1A1A1A!important;transition:all 0.2s ease;">
+                <div class="col-md-4">
+                  <label class="border p-3 d-block h-100 tc-pay-choice active" data-method="RAZORPAY" style="cursor:pointer;border-color:#1A1A1A!important;background:#FAF9F6;transition:all 0.2s ease;">
                     <div class="d-flex align-items-start gap-2">
                       <input type="radio" name="paymentMethod" value="RAZORPAY" checked class="mt-1">
                       <div>
-                        <div class="fw-semibold small">Razorpay Online (UPI · QR · Card)</div>
-                        <div class="text-muted" style="font-size:12px;">Instant UPI Intent/VPA, QR Code Scanner, Credit/Debit Cards &amp; Netbanking.</div>
+                        <div class="fw-semibold small">Razorpay Online</div>
+                        <div class="text-muted" style="font-size:12px;">
+                          UPI Intent/VPA, QR Scanner, Credit/Debit Cards &amp; Netbanking${withinRazorpayTestCap ? '.' : ' (Test Mode supports up to ₹50,000; PayU &amp; COD up to ' + TC.formatInr(maxCodRaw) + ' also available).'}
+                        </div>
                       </div>
                     </div>
                   </label>
                 </div>
-                <div class="col-md-6">
-                  <label class="border p-3 d-block h-100 tc-pay-choice" data-method="COD" style="cursor:pointer;transition:all 0.2s ease;">
+                <div class="col-md-4">
+                  <label class="border p-3 d-block h-100 tc-pay-choice" data-method="PAYU" style="cursor:pointer;transition:all 0.2s ease;">
                     <div class="d-flex align-items-start gap-2">
-                      <input type="radio" name="paymentMethod" value="COD" class="mt-1">
+                      <input type="radio" name="paymentMethod" value="PAYU" class="mt-1">
+                      <div>
+                        <div class="fw-semibold small">PayU Gateway</div>
+                        <div class="text-muted" style="font-size:12px;">Cards, UPI, Netbanking &amp; Wallets via PayU Hosted Checkout.</div>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                <div class="col-md-4">
+                  <label class="border p-3 d-block h-100 tc-pay-choice ${codEligibleCart ? '' : 'tc-pay-disabled'}" data-method="COD" style="cursor:pointer;transition:all 0.2s ease;">
+                    <div class="d-flex align-items-start gap-2">
+                      <input type="radio" name="paymentMethod" value="COD" class="mt-1" ${codEligibleCart ? '' : 'disabled'}>
                       <div>
                         <div class="fw-semibold small">Cash on Delivery (COD)</div>
-                        <div class="text-muted" style="font-size:12px;">Pay in cash at your doorstep on delivery (orders up to ₹50,000).</div>
+                        <div class="text-muted" style="font-size:12px;">
+                          ${codEligibleCart
+                            ? `Pay in cash on delivery (orders up to ${TC.formatInr(maxCodRaw)}).`
+                            : `Available up to ${TC.formatInr(maxCodRaw)}. Use Razorpay or PayU for this order.`}
+                        </div>
                       </div>
                     </div>
                   </label>
@@ -129,11 +385,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="col-lg-5">
             <div class="tc-panel">
               <h2 class="h4 tc-serif mb-3">3. Verified Price Breakdown</h2>
-              <div class="vstack gap-2 mb-3 border-bottom pb-3">
+              <div id="checkoutSplitNoticeHost"></div>
+              <div class="vstack gap-2 mb-3 border-bottom pb-3" id="checkoutItemsList">
                 ${cart.items.map(i => `
-                  <div class="d-flex justify-content-between small">
-                    <span>${TC.escapeHtml(i.brandName)} ${TC.escapeHtml(i.productName)} × ${i.quantity}</span>
-                    <span class="tc-price fw-medium">${TC.formatInr(i.lineSubtotal)}</span>
+                  <div class="pb-1" data-chk-item-id="${i.id}">
+                    <div class="d-flex justify-content-between gap-2 small">
+                      <span>${TC.escapeHtml(i.brandName)} ${TC.escapeHtml(i.productName)} × ${i.quantity}</span>
+                      <span class="tc-price fw-medium text-nowrap">${TC.formatInr(i.lineSubtotal)}</span>
+                    </div>
+                    <div class="js-chk-delivery">
+                      ${TC.renderDeliveryLine(i.deliveryEstimate, { className: 'tc-checkout-delivery-line' })}
+                    </div>
                   </div>`).join('')}
               </div>
               <div class="small vstack gap-2 tc-price">
@@ -149,29 +411,77 @@ document.addEventListener('DOMContentLoaded', async () => {
                 Reserve Stock &amp; Pay via Razorpay
               </button>
               <p class="small text-muted mt-3 mb-0">
-                Stock is reserved for 15 minutes when your order is created. Order confirmation occurs only after cryptographic signature verification on our backend.
+                Stock is reserved for 15 minutes when your order is created. If online payment is interrupted, you can seamlessly retry or switch between Razorpay, PayU, and eligible Cash on Delivery (up to ${TC.formatInr(maxCodRaw)}) without duplicate orders.
               </p>
             </div>
           </div>
         </div>`;
 
+        async function refreshCheckoutDelivery(pinCode) {
+            const cleanPin = String(pinCode || '').replace(/\D/g, '').slice(0, 6);
+            const splitHost = document.getElementById('checkoutSplitNoticeHost');
+            try {
+                const qs = cleanPin.length === 6 ? ('?pinCode=' + encodeURIComponent(cleanPin)) : '';
+                const summary = await TC.api('/delivery/cart-estimates' + qs);
+                if (!summary || !Array.isArray(summary.items)) return;
+                summary.items.forEach(it => {
+                    const row = document.querySelector(`[data-chk-item-id="${it.cartItemId}"] .js-chk-delivery`);
+                    if (row && it.estimate) {
+                        const est = it.estimate;
+                        const subLine = est.serviceable && est.available && est.warehouseName
+                            ? `<div class="tc-bag-delivery-sub">Ships from ${TC.escapeHtml(est.warehouseName)}${est.courierName ? ' via ' + TC.escapeHtml(est.courierName) : ''}</div>`
+                            : (est.detailMessage && (!est.serviceable || !est.available)
+                                ? `<div class="tc-bag-delivery-sub text-danger">${TC.escapeHtml(est.detailMessage)}</div>` : '');
+                        row.innerHTML = TC.renderDeliveryLine(est, { className: 'tc-checkout-delivery-line', showDates: cleanPin.length === 6 }) + subLine;
+                    }
+                });
+                if (splitHost) {
+                    if (summary.splitWarehouseShipment && Array.isArray(summary.warehouseNames) && summary.warehouseNames.length > 1) {
+                        splitHost.innerHTML = `
+                          <div class="tc-bag-split-notice mb-3" role="status">
+                            <div class="mt-1">${TC.TRUCK_SVG}</div>
+                            <div><strong>Separate Vault Shipments:</strong> Items ship from ${TC.escapeHtml(summary.warehouseNames.join(' & '))}.</div>
+                          </div>`;
+                    } else {
+                        splitHost.innerHTML = '';
+                    }
+                }
+            } catch {}
+        }
+
+        document.querySelectorAll('input[name="selectedAddress"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                refreshCheckoutDelivery(radio.getAttribute('data-pin') || '');
+            });
+        });
+        if (defaultAddr && defaultAddr.postalCode) {
+            refreshCheckoutDelivery(defaultAddr.postalCode);
+        }
+
+        function labelForMethod(method) {
+            if (method === 'COD') return 'Confirm Cash on Delivery Order';
+            if (method === 'PAYU') return 'Reserve Stock & Pay via PayU';
+            return 'Reserve Stock & Pay via Razorpay';
+        }
+
         document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 document.querySelectorAll('.tc-pay-choice').forEach(el => {
+                    if (el.classList.contains('tc-pay-disabled')) return;
                     const isSelected = el.dataset.method === radio.value;
                     el.style.borderColor = isSelected ? '#1A1A1A' : '#E5E2DC';
                     el.style.background = isSelected ? '#FAF9F6' : '#FFFFFF';
                 });
                 const btn = document.getElementById('placeOrderBtn');
                 if (btn) {
-                    btn.textContent = radio.value === 'COD'
-                        ? 'Confirm Cash on Delivery Order'
-                        : 'Reserve Stock & Pay via Razorpay';
+                    btn.textContent = labelForMethod(radio.value);
                 }
             });
         });
 
         const idempotencyKey = 'chk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        let createdOrder = null;
+
         document.getElementById('placeOrderBtn')?.addEventListener('click', async () => {
             const addrRadio = document.querySelector('input[name="selectedAddress"]:checked');
             if (!addrRadio) {
@@ -181,258 +491,64 @@ document.addEventListener('DOMContentLoaded', async () => {
             const selectedMethod = (document.querySelector('input[name="paymentMethod"]:checked') || { value: 'RAZORPAY' }).value;
             const btn = document.getElementById('placeOrderBtn');
             btn.disabled = true;
-            btn.textContent = selectedMethod === 'COD' ? 'Confirming COD Order…' : 'Reserving Stock & Creating Order…';
-            let order = null;
+            btn.textContent = selectedMethod === 'COD'
+                ? 'Confirming COD Order…'
+                : (selectedMethod === 'PAYU' ? 'Reserving Stock & Connecting to PayU…' : 'Reserving Stock & Creating Order…');
+
             try {
-                order = await TC.api('/orders', {
-                    method: 'POST',
-                    headers: { 'X-Idempotency-Key': idempotencyKey },
-                    body: {
-                        addressId: Number(addrRadio.value),
-                        couponCode: cart.appliedCouponCode,
-                        customerNote: document.getElementById('checkoutNote').value,
-                        idempotencyKey,
-                        paymentMethod: selectedMethod
+                if (!createdOrder) {
+                    createdOrder = await TC.api('/orders', {
+                        method: 'POST',
+                        headers: { 'X-Idempotency-Key': idempotencyKey },
+                        body: {
+                            addressId: Number(addrRadio.value),
+                            couponCode: cart.appliedCouponCode,
+                            customerNote: document.getElementById('checkoutNote').value,
+                            idempotencyKey,
+                            paymentMethod: selectedMethod
+                        }
+                    });
+                    await TC.updateHeaderBadges();
+                }
+
+                if (selectedMethod === 'COD' || createdOrder.paymentMethod === 'COD') {
+                    try { sessionStorage.removeItem('tc_pending_order'); } catch {}
+                    window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(createdOrder.orderNumber)}&method=COD`;
+                    return;
+                }
+
+                try { sessionStorage.setItem('tc_pending_order', createdOrder.orderNumber); } catch {}
+
+                if (selectedMethod === 'PAYU') {
+                    await TC.launchOrderPayuPayment(createdOrder, { retry: false });
+                    return;
+                }
+
+                await TC.launchOrderRazorpayPayment(createdOrder, {
+                    retry: false,
+                    onSuccess: (confirmedOrder) => {
+                        window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent((confirmedOrder || createdOrder).orderNumber)}`;
+                    },
+                    onFailure: (failCtx) => {
+                        renderPendingOrderRecovery(failCtx.order || createdOrder, Object.assign({ gateway: 'RAZORPAY' }, failCtx));
                     }
                 });
-
-                if (selectedMethod === 'COD') {
-                    window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(order.orderNumber)}&method=COD`;
-                    return;
-                }
-
-                const paymentOrder = await TC.api('/payments/create', {
-                    method: 'POST',
-                    body: { orderId: order.id }
-                });
-
-                if (paymentOrder.sandboxMode) {
-                    openRazorpayTestSandboxModal(order, paymentOrder, btn);
-                    return;
-                }
-
-                if (typeof Razorpay === 'undefined') {
-                    window.location.href = `/pages/payment-result.html?status=pending&order=${encodeURIComponent(order.orderNumber)}&reason=Razorpay+checkout+script+unavailable`;
-                    return;
-                }
-
-                const cleanContact = (function (raw) {
-                    const digits = String(raw || '').replace(/\D/g, '');
-                    const last10 = digits.length >= 10 ? digits.slice(-10) : '';
-                    return /^[6-9]\d{9}$/.test(last10) ? last10 : '9876543210';
-                })(paymentOrder.customerPhone);
-
-                const rzp = new Razorpay({
-                    key: paymentOrder.keyId || paymentOrder.razorpayKeyId,
-                    amount: paymentOrder.amountInPaise || paymentOrder.amountInMinorUnits,
-                    currency: 'INR',
-                    name: 'TimeCraft Fine Horology',
-                    description: 'Order ' + paymentOrder.orderNumber,
-                    order_id: paymentOrder.razorpayOrderId,
-                    method: {
-                        upi: true,
-                        card: true,
-                        netbanking: true,
-                        wallet: true
-                    },
-                    prefill: {
-                        name: paymentOrder.customerName || 'TimeCraft Collector',
-                        email: paymentOrder.customerEmail || '',
-                        contact: cleanContact
-                    },
-                    theme: { color: '#1A1A1A' },
-                    handler: async function (response) {
-                        try {
-                            await TC.api('/payments/verify', {
-                                method: 'POST',
-                                body: {
-                                    orderId: order.id,
-                                    razorpayOrderId: response.razorpay_order_id,
-                                    razorpayPaymentId: response.razorpay_payment_id,
-                                    razorpaySignature: response.razorpay_signature,
-                                    paymentMethod: 'RAZORPAY'
-                                }
-                            });
-                            window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(order.orderNumber)}`;
-                        } catch (verifyErr) {
-                            TC.toast('Payment verification failed: ' + verifyErr.message, 'error');
-                            window.location.href = `/pages/payment-result.html?status=failed&order=${encodeURIComponent(order.orderNumber)}&reason=${encodeURIComponent(verifyErr.message)}`;
-                        }
-                    },
-                    modal: {
-                        ondismiss: async function () {
-                            try {
-                                await TC.api('/payments/failure', {
-                                    method: 'POST',
-                                    body: {
-                                        orderId: order.id,
-                                        razorpayOrderId: paymentOrder.razorpayOrderId,
-                                        reason: 'Customer closed payment modal',
-                                        cancelled: true
-                                    }
-                                });
-                            } catch (_) { /* ignore cleanup error */ }
-                            window.location.href = `/pages/payment-result.html?status=cancelled&order=${encodeURIComponent(order.orderNumber)}`;
-                        }
-                    }
-                });
-                rzp.on('payment.failed', async function (resp) {
-                    const reason = (resp.error && resp.error.description) || 'Payment declined';
-                    try {
-                        await TC.api('/payments/failure', {
-                            method: 'POST',
-                            body: {
-                                orderId: order.id,
-                                razorpayOrderId: paymentOrder.razorpayOrderId,
-                                razorpayPaymentId: resp.error && resp.error.metadata ? resp.error.metadata.payment_id : null,
-                                reason,
-                                cancelled: true
-                            }
-                        });
-                    } catch (_) { /* ignore cleanup error */ }
-                    window.location.href = `/pages/payment-result.html?status=failed&order=${encodeURIComponent(order.orderNumber)}&reason=${encodeURIComponent(reason)}`;
-                });
-                rzp.open();
             } catch (err) {
-                btn.disabled = false;
-                btn.textContent = 'Reserve Stock & Pay via Razorpay';
-                if (order && order.orderNumber) {
-                    window.location.href = `/pages/payment-result.html?status=pending&order=${encodeURIComponent(order.orderNumber)}&reason=${encodeURIComponent(err.message)}`;
+                if (createdOrder && createdOrder.orderNumber) {
+                    renderPendingOrderRecovery(createdOrder, {
+                        status: 'failed',
+                        gateway: selectedMethod,
+                        reason: err.message || 'Could not initialize payment gateway'
+                    });
                 } else {
+                    btn.disabled = false;
+                    btn.textContent = labelForMethod(selectedMethod);
                     TC.toast(err.message, 'error');
                 }
             }
         });
     } catch (err) {
         host.innerHTML = `<div class="alert alert-danger rounded-0">${TC.escapeHtml(err.message)}</div>`;
-    }
-
-    function openRazorpayTestSandboxModal(order, paymentOrder, triggerBtn) {
-        const existing = document.getElementById('tcRzpSandboxModal');
-        if (existing) existing.remove();
-
-        const wrap = document.createElement('div');
-        wrap.id = 'tcRzpSandboxModal';
-        wrap.className = 'tc-google-modal-backdrop';
-        wrap.innerHTML = `
-          <div class="tc-google-modal" style="max-width:440px;padding:0;overflow:hidden;">
-            <div style="background:#1A1A1A;color:#FAF9F6;padding:18px 22px;" class="d-flex justify-content-between align-items-center">
-              <div>
-                <div style="font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:#B08D57;">Razorpay Test Mode Gateway</div>
-                <div class="tc-serif fs-4">TimeCraft Fine Horology</div>
-                <div class="small text-white-50 tc-num">Order ${TC.escapeHtml(paymentOrder.orderNumber)} · ${TC.escapeHtml(paymentOrder.razorpayOrderId)}</div>
-              </div>
-              <div class="text-end">
-                <div class="fs-5 fw-bold tc-price">${TC.formatInr(paymentOrder.amount)}</div>
-                <span class="badge bg-warning text-dark rounded-0" style="font-size:10px;">TEST MODE</span>
-              </div>
-            </div>
-
-            <div style="padding:22px;">
-              <label class="form-label small text-uppercase fw-semibold">Select Payment Instrument</label>
-              <div class="vstack gap-2 mb-3">
-                <label class="tc-google-account-pill">
-                  <input type="radio" name="rzpMethod" value="UPI" checked>
-                  <div>
-                    <div class="fw-semibold small">UPI (GPay / PhonePe / BHIM)</div>
-                    <div class="text-muted" style="font-size:12px;">Instant UPI VPA authorization · success@razorpay</div>
-                  </div>
-                </label>
-                <label class="tc-google-account-pill">
-                  <input type="radio" name="rzpMethod" value="CARD">
-                  <div>
-                    <div class="fw-semibold small">Credit / Debit Card</div>
-                    <div class="text-muted" style="font-size:12px;">Visa / Mastercard Test Card ·••• 4242</div>
-                  </div>
-                </label>
-                <label class="tc-google-account-pill">
-                  <input type="radio" name="rzpMethod" value="NETBANKING">
-                  <div>
-                    <div class="fw-semibold small">Netbanking</div>
-                    <div class="text-muted" style="font-size:12px;">HDFC / ICICI / SBI Test Bank</div>
-                  </div>
-                </label>
-              </div>
-
-              <div class="d-grid gap-2">
-                <button type="button" id="rzpSimSuccessBtn" class="btn-tc-primary w-100">
-                  Authorize &amp; Pay ${TC.formatInr(paymentOrder.amount)} (HMAC Verified)
-                </button>
-                <div class="d-flex gap-2">
-                  <button type="button" id="rzpSimFailBtn" class="btn-tc-secondary flex-grow-1 text-danger">
-                    Simulate Bank Decline
-                  </button>
-                  <button type="button" id="rzpSimCancelBtn" class="btn-tc-secondary flex-grow-1">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-              <div class="text-muted mt-3" style="font-size:11px;">
-                Generates a signed <code>razorpay_payment_id</code> + HMAC-SHA256 <code>razorpay_signature</code> and verifies it through <code>POST /api/v1/payments/verify</code>.
-              </div>
-            </div>
-          </div>`;
-        document.body.appendChild(wrap);
-
-        document.getElementById('rzpSimSuccessBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('rzpSimSuccessBtn');
-            btn.disabled = true;
-            btn.textContent = 'Verifying HMAC-SHA256 Signature…';
-            const method = document.querySelector('input[name="rzpMethod"]:checked')?.value || 'UPI';
-            try {
-                const signed = await TC.api('/payments/sandbox-authorize', {
-                    method: 'POST',
-                    body: {
-                        orderId: order.id,
-                        razorpayOrderId: paymentOrder.razorpayOrderId,
-                        paymentMethod: method
-                    }
-                });
-                await TC.api('/payments/verify', {
-                    method: 'POST',
-                    body: {
-                        orderId: order.id,
-                        razorpayOrderId: signed.razorpayOrderId,
-                        razorpayPaymentId: signed.razorpayPaymentId,
-                        razorpaySignature: signed.razorpaySignature,
-                        paymentMethod: signed.paymentMethod
-                    }
-                });
-                wrap.remove();
-                window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(order.orderNumber)}`;
-            } catch (err) {
-                wrap.remove();
-                window.location.href = `/pages/payment-result.html?status=failed&order=${encodeURIComponent(order.orderNumber)}&reason=${encodeURIComponent(err.message)}`;
-            }
-        });
-
-        document.getElementById('rzpSimFailBtn').addEventListener('click', async () => {
-            await TC.api('/payments/failure', {
-                method: 'POST',
-                body: {
-                    orderId: order.id,
-                    razorpayOrderId: paymentOrder.razorpayOrderId,
-                    reason: 'Simulated bank decline in Razorpay Test Mode',
-                    cancelled: false
-                }
-            });
-            wrap.remove();
-            window.location.href = `/pages/payment-result.html?status=failed&order=${encodeURIComponent(order.orderNumber)}&reason=Simulated+bank+decline`;
-        });
-
-        document.getElementById('rzpSimCancelBtn').addEventListener('click', async () => {
-            await TC.api('/payments/failure', {
-                method: 'POST',
-                body: {
-                    orderId: order.id,
-                    razorpayOrderId: paymentOrder.razorpayOrderId,
-                    reason: 'Customer cancelled payment modal',
-                    cancelled: true
-                }
-            });
-            wrap.remove();
-            window.location.href = `/pages/payment-result.html?status=cancelled&order=${encodeURIComponent(order.orderNumber)}`;
-        });
     }
 });
 </script>

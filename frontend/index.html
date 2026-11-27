@@ -3,78 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TimeCraft · Fine Horology &amp; Luxury Watches</title>
+    <title>TimeCraft · Fine Horology &amp; Authorised Luxury Maisons</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/styles.css" rel="stylesheet">
     <style>
-        @keyframes tcHeroRise {
-            from { opacity: 0; transform: translateY(22px); }
-            to { opacity: 1; transform: translateY(0); }
+        /* Hero & Horological Calibre Motion (GPU-composited, subtle, respectful of reduced motion) */
+        @keyframes tcBalanceOscillate {
+            0%   { transform: rotate(-16deg); }
+            50%  { transform: rotate(16deg); }
+            100% { transform: rotate(-16deg); }
         }
-        @keyframes tcFloatHero {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+        @keyframes tcGearSlowCW {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
         }
-        .tc-hero-dark {
-            background: radial-gradient(circle at 76% 45%, #2B2620 0%, #161513 55%, #0F0E0D 100%);
-            color: #FAF9F6;
-            overflow: hidden;
+        @keyframes tcGearSlowCCW {
+            from { transform: rotate(360deg); }
+            to   { transform: rotate(0deg); }
         }
-        .tc-hero-dark h1,
-        .tc-hero-dark .tc-serif {
-            color: #FAF9F6 !important;
-            opacity: 1 !important;
+        .tc-balance-wheel-osc {
+            transform-origin: 0px 0px;
+            animation: tcBalanceOscillate 0.5s ease-in-out infinite;
         }
-        .tc-hero-reveal { animation: tcHeroRise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
-        .tc-hero-reveal-delay { animation: tcHeroRise 0.95s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both; }
-        .tc-watch-float {
-            animation: tcFloatHero 5.5s ease-in-out infinite;
-            filter: drop-shadow(0 24px 38px rgba(0, 0, 0, 0.48));
-            max-width: 340px;
-            width: 100%;
-        }
-        .tc-reveal {
-            opacity: 0;
-            transform: translateY(16px);
-            transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .tc-reveal.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .tc-maison-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 16px;
-        }
-        @media (max-width: 991px) {
-            .tc-maison-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        .tc-maison-card {
-            background: #FFFFFF;
-            border: 1px solid var(--tc-border);
-            border-radius: 3px;
-            padding: 18px 14px;
+        .tc-calibre-stage {
+            position: relative;
+            background: radial-gradient(circle at 50% 48%, rgba(166, 132, 70, 0.16) 0%, rgba(20, 20, 20, 0) 66%);
+            border: 1px solid rgba(166, 132, 70, 0.28);
+            padding: 28px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            text-align: center;
-            min-width: 0;
-            transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.24s ease, box-shadow 0.24s ease;
         }
-        .tc-maison-card:hover {
-            transform: translateY(-4px);
-            border-color: var(--tc-gold);
-            box-shadow: 0 12px 24px rgba(26, 26, 26, 0.07);
+        .tc-calibre-stage svg {
+            width: 100%;
+            max-width: 340px;
+            height: auto;
+            display: block;
+        }
+        .tc-calibre-stage.is-inview .tc-gear-cw {
+            animation: tcGearSlowCW 36s linear infinite;
+        }
+        .tc-calibre-stage.is-inview .tc-gear-ccw {
+            animation: tcGearSlowCCW 24s linear infinite;
+        }
+        .tc-calibre-stage.is-inview .tc-escapement-pulse {
+            animation: tcBalanceOscillate 0.5s ease-in-out infinite;
+        }
+        .tc-hero-outline-light {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            font-size: 11.5px;
+            font-weight: 500;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--tc-alabaster);
+            border: 1px solid rgba(248, 246, 241, 0.34);
+            border-radius: 1px;
+            transition: border-color 0.25s ease, color 0.25s ease, background-color 0.25s ease;
+        }
+        .tc-hero-outline-light:hover {
+            border-color: var(--tc-gold-light);
+            color: var(--tc-gold-light);
+            background: rgba(248, 246, 241, 0.04);
+        }
+        .tc-pillar-card-dark {
+            border-top: 1px solid rgba(248, 246, 241, 0.16);
+            padding-top: 20px;
+            height: 100%;
         }
         @media (prefers-reduced-motion: reduce) {
-            .tc-hero-reveal, .tc-hero-reveal-delay, .tc-watch-float, .tc-reveal {
+            .tc-balance-wheel-osc,
+            .tc-calibre-stage.is-inview .tc-gear-cw,
+            .tc-calibre-stage.is-inview .tc-gear-ccw,
+            .tc-calibre-stage.is-inview .tc-escapement-pulse {
                 animation: none !important;
-                transition: none !important;
-                opacity: 1 !important;
-                transform: none !important;
             }
         }
     </style>
@@ -82,108 +89,473 @@
 <body>
 <div id="tcHeader"></div>
 
-<!-- 1. Editorial High-Contrast Dark Hero -->
-<section class="tc-hero-dark py-5">
-    <div class="container py-lg-5">
+<!-- 1. LUXURY HOROLOGY HERO WITH LIVE IST PRECISION CHRONOMETER -->
+<section class="tc-hero-maison py-5">
+    <div class="container py-lg-4">
         <div class="row align-items-center g-5">
-            <div class="col-lg-7 tc-hero-reveal">
-                <div class="tc-eyebrow mb-2" style="color:#DFC28C;">The Autumn Edit · Fine Horology</div>
-                <h1 class="display-3 tc-serif mb-3" style="line-height:1.06;">Time, crafted with intention.</h1>
-                <p class="mb-4" style="color:rgba(250,249,246,0.82);max-width:540px;font-size:1.04rem;">
-                    Mechanical icons, refined dress pieces and tool watches from Swiss maisons and India's finest watchmakers — <strong style="color:#FAF9F6;">Titan</strong> &amp; <strong style="color:#FAF9F6;">Fastrack</strong>.
-                </p>
-                <div class="d-flex flex-wrap gap-3 mb-4">
-                    <a href="#featuredSection" class="btn-tc-primary" style="background:#B08D57;border-color:#B08D57;color:#141311;font-weight:700;">Explore Collection</a>
-                    <a href="/pages/brands.html" class="btn-tc-outline" style="color:#FAF9F6;border-color:rgba(250,249,246,0.4);">Explore Maisons</a>
+            <div class="col-lg-7">
+                <div class="tc-eyebrow mb-3 tc-stagger-1" style="color:var(--tc-gold-light);">
+                    Geneva &middot; Paris &middot; Tokyo &middot; Bengaluru
                 </div>
-                <div class="d-flex flex-wrap gap-4 small pt-3 border-top" style="color:rgba(250,249,246,0.72);border-color:rgba(255,255,255,0.14)!important;">
-                    <span>&#10003; Free Insured Delivery &gt; ₹10,000</span>
-                    <span>&#10003; Razorpay UPI · QR · Card</span>
-                    <span>&#10003; Cash on Delivery Available</span>
+                <h1 class="tc-display-editorial mb-3 tc-stagger-2">
+                    The Architecture of Mechanical Time.
+                </h1>
+                <p class="mb-4 tc-stagger-3" style="color:rgba(248,246,241,0.78);max-width:560px;font-size:1.05rem;line-height:1.7;">
+                    An authorised horological gallery uniting independent Swiss &amp; European complication ateliers with Japanese titanium tool instruments and pioneering Indian watchmaking.
+                </p>
+                <div class="d-flex flex-wrap gap-3 tc-stagger-4">
+                    <a href="#hauteHorlogerieSection" class="btn-tc-gold">Explore Haute Horlogerie</a>
+                    <a href="/pages/brands.html" class="tc-hero-outline-light">Partner Maisons</a>
+                </div>
+
+                <div class="tc-hero-specs-strip tc-stagger-4">
+                    <div>
+                        <div class="tc-eyebrow mb-1" style="color:var(--tc-gold-light);font-size:9.5px;">Provenance</div>
+                        <div class="small" style="color:rgba(248,246,241,0.86);">100% Serial-Verified Authorised Maisons</div>
+                    </div>
+                    <div>
+                        <div class="tc-eyebrow mb-1" style="color:var(--tc-gold-light);font-size:9.5px;">Chronometry</div>
+                        <div class="small" style="color:rgba(248,246,241,0.86);">Regulated Across Five Positions</div>
+                    </div>
+                    <div>
+                        <div class="tc-eyebrow mb-1" style="color:var(--tc-gold-light);font-size:9.5px;">Insured Custody</div>
+                        <div class="small" style="color:rgba(248,246,241,0.86);">Vault Transit &amp; Concierge COD up to ₹5L</div>
+                    </div>
                 </div>
             </div>
-            <div class="col-lg-5 text-center tc-hero-reveal-delay">
-                <img src="/images/hero-watch-animated.svg"
-                     alt="Animated TimeCraft Mechanical Tourbillon Watch"
-                     class="tc-watch-float mx-auto">
+
+            <!-- Inline Precision Chronometer Synchronized Mathematically to Live Asia/Kolkata Time -->
+            <div class="col-lg-5">
+                <div class="tc-hero-watch-stage tc-stagger-3">
+                    <div class="tc-hero-watch-halo">
+                        <svg class="tc-hero-watch-svg" viewBox="0 0 480 480" role="img" aria-label="TimeCraft Calibre TC-01 Live Mechanical Chronometer">
+                            <defs>
+                                <radialGradient id="tcHeroDialGrad" cx="50%" cy="40%" r="60%">
+                                    <stop offset="0%" stop-color="#25231F"/>
+                                    <stop offset="58%" stop-color="#141311"/>
+                                    <stop offset="100%" stop-color="#090908"/>
+                                </radialGradient>
+                                <linearGradient id="tcHeroCaseGold" x1="12%" y1="6%" x2="88%" y2="94%">
+                                    <stop offset="0%" stop-color="#EAD4A8"/>
+                                    <stop offset="32%" stop-color="#C5A060"/>
+                                    <stop offset="68%" stop-color="#8B6934"/>
+                                    <stop offset="100%" stop-color="#DBC08D"/>
+                                </linearGradient>
+                                <linearGradient id="tcHeroBezelStep" x1="0%" y1="100%" x2="100%" y2="0%">
+                                    <stop offset="0%" stop-color="#6F5328"/>
+                                    <stop offset="50%" stop-color="#E7D1A3"/>
+                                    <stop offset="100%" stop-color="#7B5C2E"/>
+                                </linearGradient>
+                                <linearGradient id="tcSapphireGlint" x1="15%" y1="10%" x2="75%" y2="75%">
+                                    <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.09"/>
+                                    <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0.015"/>
+                                    <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+                                </linearGradient>
+                            </defs>
+
+                            <!-- Sculpted Faceted Lugs -->
+                            <path d="M164 32 L190 32 L198 84 L158 95 Z" fill="url(#tcHeroCaseGold)"/>
+                            <path d="M316 32 L290 32 L282 84 L322 95 Z" fill="url(#tcHeroCaseGold)"/>
+                            <path d="M164 448 L190 448 L198 396 L158 385 Z" fill="url(#tcHeroCaseGold)"/>
+                            <path d="M316 448 L290 448 L282 396 L322 385 Z" fill="url(#tcHeroCaseGold)"/>
+
+                            <!-- Fluted Winding Crown at 3 o'clock -->
+                            <path d="M418 206 L427 214 L427 266 L418 274 Z" fill="#8B6934"/>
+                            <rect x="425" y="218" width="16" height="44" rx="3" fill="url(#tcHeroCaseGold)"/>
+                            <g stroke="#5D441F" stroke-width="1.2">
+                                <line x1="429" y1="222" x2="429" y2="258"/>
+                                <line x1="433" y1="222" x2="433" y2="258"/>
+                                <line x1="437" y1="222" x2="437" y2="258"/>
+                            </g>
+
+                            <!-- Stepped 18K Brushed Gold Case & Bezel -->
+                            <circle cx="240" cy="240" r="186" fill="url(#tcHeroCaseGold)"/>
+                            <circle cx="240" cy="240" r="177" fill="#161513" stroke="url(#tcHeroBezelStep)" stroke-width="1.6"/>
+                            <circle cx="240" cy="240" r="170" fill="url(#tcHeroDialGrad)"/>
+
+                            <!-- Precision Railroad Minute Track & Guilloche Inner Chapter -->
+                            <circle cx="240" cy="240" r="161" fill="none" stroke="#C5A060" stroke-opacity="0.34" stroke-width="0.75"/>
+                            <circle cx="240" cy="240" r="154" fill="none" stroke="#C5A060" stroke-opacity="0.2" stroke-width="0.6"/>
+                            <circle cx="240" cy="240" r="118" fill="none" stroke="#C5A060" stroke-opacity="0.16" stroke-width="0.65"/>
+
+                            <!-- Dial Center Coordinate System (Exact Origin: 240, 240) -->
+                            <g transform="translate(240 240)">
+                                <!-- 60 Precision Minute / 5-Second Graduation Ticks -->
+                                <g stroke="#D9BE8B" stroke-opacity="0.52" stroke-width="0.85">
+                                    <line y1="-161" y2="-154" transform="rotate(6)"/><line y1="-161" y2="-154" transform="rotate(12)"/><line y1="-161" y2="-154" transform="rotate(18)"/><line y1="-161" y2="-154" transform="rotate(24)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(36)"/><line y1="-161" y2="-154" transform="rotate(42)"/><line y1="-161" y2="-154" transform="rotate(48)"/><line y1="-161" y2="-154" transform="rotate(54)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(66)"/><line y1="-161" y2="-154" transform="rotate(72)"/><line y1="-161" y2="-154" transform="rotate(78)"/><line y1="-161" y2="-154" transform="rotate(84)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(96)"/><line y1="-161" y2="-154" transform="rotate(102)"/><line y1="-161" y2="-154" transform="rotate(108)"/><line y1="-161" y2="-154" transform="rotate(114)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(126)"/><line y1="-161" y2="-154" transform="rotate(132)"/><line y1="-161" y2="-154" transform="rotate(138)"/><line y1="-161" y2="-154" transform="rotate(144)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(156)"/><line y1="-161" y2="-154" transform="rotate(162)"/><line y1="-161" y2="-154" transform="rotate(168)"/><line y1="-161" y2="-154" transform="rotate(174)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(186)"/><line y1="-161" y2="-154" transform="rotate(192)"/><line y1="-161" y2="-154" transform="rotate(198)"/><line y1="-161" y2="-154" transform="rotate(204)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(216)"/><line y1="-161" y2="-154" transform="rotate(222)"/><line y1="-161" y2="-154" transform="rotate(228)"/><line y1="-161" y2="-154" transform="rotate(234)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(246)"/><line y1="-161" y2="-154" transform="rotate(252)"/><line y1="-161" y2="-154" transform="rotate(258)"/><line y1="-161" y2="-154" transform="rotate(264)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(276)"/><line y1="-161" y2="-154" transform="rotate(282)"/><line y1="-161" y2="-154" transform="rotate(288)"/><line y1="-161" y2="-154" transform="rotate(294)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(306)"/><line y1="-161" y2="-154" transform="rotate(312)"/><line y1="-161" y2="-154" transform="rotate(318)"/><line y1="-161" y2="-154" transform="rotate(324)"/>
+                                    <line y1="-161" y2="-154" transform="rotate(336)"/><line y1="-161" y2="-154" transform="rotate(342)"/><line y1="-161" y2="-154" transform="rotate(348)"/><line y1="-161" y2="-154" transform="rotate(354)"/>
+                                </g>
+
+                                <!-- Applied 18K Gold Faceted Hour Indices -->
+                                <!-- Double Baton at 12 o'clock -->
+                                <rect x="-5.2" y="-151" width="3.4" height="24" fill="url(#tcHeroCaseGold)"/>
+                                <rect x="1.8" y="-151" width="3.4" height="24" fill="url(#tcHeroCaseGold)"/>
+                                <!-- Cardinal Indices at 9 & 6 (3 has Date Aperture + short luminous marker) -->
+                                <rect x="-151" y="-1.8" width="24" height="3.6" fill="url(#tcHeroCaseGold)"/>
+                                <rect x="139" y="-1.6" width="12" height="3.2" fill="url(#tcHeroCaseGold)"/>
+                                <rect x="-1.8" y="131" width="3.6" height="20" fill="url(#tcHeroCaseGold)"/>
+                                <!-- Non-cardinal Applied Batons -->
+                                <g fill="url(#tcHeroCaseGold)">
+                                    <rect x="-1.5" y="-151" width="3" height="19" transform="rotate(30)"/>
+                                    <rect x="-1.5" y="-151" width="3" height="19" transform="rotate(60)"/>
+                                    <rect x="-1.5" y="-151" width="3" height="19" transform="rotate(120)"/>
+                                    <rect x="-1.5" y="-151" width="3" height="19" transform="rotate(150)"/>
+                                    <rect x="-1.5" y="-151" width="3" height="19" transform="rotate(210)"/>
+                                    <rect x="-1.5" y="-151" width="3" height="19" transform="rotate(240)"/>
+                                    <rect x="-1.5" y="-151" width="3" height="19" transform="rotate(300)"/>
+                                    <rect x="-1.5" y="-151" width="3" height="19" transform="rotate(330)"/>
+                                </g>
+
+                                <!-- Dial Typography -->
+                                <text x="0" y="-84" text-anchor="middle" fill="#F8F6F1" font-family="'Cormorant Garamond', Georgia, serif" font-size="17" font-weight="600" letter-spacing="5.5">TIMECRAFT</text>
+                                <text x="0" y="-68" text-anchor="middle" fill="#C5A060" font-family="'DM Sans', sans-serif" font-size="7.5" font-weight="600" letter-spacing="3.2">CHRONOMÈTRE · CALIBRE TC-01</text>
+
+                                <!-- 3 o'clock Bevelled IST Date Aperture -->
+                                <g transform="translate(112 0)">
+                                    <rect x="-17" y="-12.5" width="34" height="25" rx="1.5" fill="#F5F1E8" stroke="url(#tcHeroCaseGold)" stroke-width="1.6"/>
+                                    <text id="tcClockDateNum" x="0" y="5" text-anchor="middle" fill="#141414" font-family="'DM Sans', sans-serif" font-size="13" font-weight="600">26</text>
+                                </g>
+
+                                <!-- 6 o'clock Open-Heart Balance Wheel & Bridge -->
+                                <g transform="translate(0 78)">
+                                    <circle r="33" fill="#0B0A09" stroke="#C5A060" stroke-opacity="0.52" stroke-width="1.2"/>
+                                    <circle r="28" fill="none" stroke="#8B6934" stroke-opacity="0.35" stroke-width="0.7"/>
+                                    <g class="tc-balance-wheel-osc">
+                                        <circle r="21" fill="none" stroke="#DFC38F" stroke-width="1.6" stroke-dasharray="9 4"/>
+                                        <line x1="-21" y1="0" x2="21" y2="0" stroke="#C5A060" stroke-width="1.1"/>
+                                        <line x1="0" y1="-21" x2="0" y2="21" stroke="#C5A060" stroke-width="1.1"/>
+                                    </g>
+                                    <!-- Tourbillon Upper Bridge & Chaton Ruby -->
+                                    <line x1="-35" y1="0" x2="35" y2="0" stroke="url(#tcHeroCaseGold)" stroke-width="2.1"/>
+                                    <circle r="5" fill="url(#tcHeroCaseGold)"/>
+                                    <circle r="2.6" fill="#9E2A3B"/>
+                                </g>
+
+                                <text x="0" y="125" text-anchor="middle" fill="#9E9689" font-family="'DM Sans', sans-serif" font-size="6.8" letter-spacing="2.4">28,800 VPH · FIVE POSITIONS</text>
+
+                                <!-- MATHEMATICALLY SYNCHRONIZED HANDS (Exact 0,0 Dial Center Origin) -->
+                                <!-- Hour Hand (Dauphine, reaches inner chapter track) -->
+                                <g id="tcClockHourHand" transform="rotate(305)">
+                                    <polygon points="-5.2,20 0,25 5.2,20 2.2,-94 0,-103 -2.2,-94" fill="#F8F6F1"/>
+                                    <polygon points="0,25 5.2,20 2.2,-94 0,-103" fill="#D8D2C5"/>
+                                    <line x1="0" y1="-16" x2="0" y2="-82" stroke="#C5A060" stroke-width="1.1"/>
+                                </g>
+
+                                <!-- Minute Hand (Long Dauphine, reaches minute track) -->
+                                <g id="tcClockMinuteHand" transform="rotate(60)">
+                                    <polygon points="-3.8,24 0,30 3.8,24 1.5,-138 0,-148 -1.5,-138" fill="#F8F6F1"/>
+                                    <polygon points="0,30 3.8,24 1.5,-138 0,-148" fill="#D5CFC2"/>
+                                    <line x1="0" y1="-20" x2="0" y2="-122" stroke="#C5A060" stroke-width="0.9"/>
+                                </g>
+
+                                <!-- Sweep Second Hand (28,800 vph 8 Hz beat) -->
+                                <g id="tcClockSecondHand" transform="rotate(186)">
+                                    <line x1="0" y1="38" x2="0" y2="-153" stroke="#DFC38F" stroke-width="1.35"/>
+                                    <circle cx="0" cy="24" r="3.6" fill="#141311" stroke="#DFC38F" stroke-width="1.3"/>
+                                </g>
+
+                                <!-- Polished Center Pinion Cap -->
+                                <circle r="6.8" fill="url(#tcHeroCaseGold)"/>
+                                <circle r="2.4" fill="#141414"/>
+                            </g>
+
+                            <!-- Subtle Domed Sapphire Anti-Reflective Sheen -->
+                            <path d="M108 138 A170 170 0 0 1 366 126 A195 195 0 0 0 108 138 Z" fill="url(#tcSapphireGlint)" pointer-events="none"/>
+                        </svg>
+                    </div>
+                    <div class="tc-live-calibre-caption" aria-live="off">
+                        <span class="tc-live-dot"></span>
+                        <span>Calibre TC-01 &middot; Live Mumbai / IST</span>
+                        <span class="tc-num text-white fw-semibold" id="tcClockDigitalIst">--:--:-- IST</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- 2. High-Impact 50% OFF Promotional Campaign Banner -->
-<section class="tc-promo-strip py-3" aria-label="Seasonal 50% Off Promotion">
+<!-- 2. AUTHORISED HOROLOGICAL MAISONS -->
+<section class="tc-section">
     <div class="container">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div class="d-flex flex-wrap align-items-center gap-3">
-                <span class="tc-promo-badge-50">50% OFF</span>
-                <div class="small">
-                    <strong style="letter-spacing:0.1em;text-transform:uppercase;color:#FAF9F6;">End of Season Horology Edit</strong>
-                    <span class="ms-2" style="color:rgba(250,249,246,0.78);">Up to 50% off select mechanical &amp; Indian collector timepieces</span>
+        <div class="tc-section-header">
+            <div>
+                <div class="tc-eyebrow mb-1">Authorised Partners</div>
+                <h2 class="tc-section-heading">The Maisons &amp; Independent Ateliers</h2>
+            </div>
+            <a href="/pages/brands.html" class="tc-link-editorial">Directory of Maisons <span>&rarr;</span></a>
+        </div>
+        <div id="brandsGrid" class="tc-maison-grid">
+            <div class="p-4 text-muted small">Loading authorised maisons…</div>
+        </div>
+    </div>
+</section>
+
+<!-- 3. HAUTE HORLOGERIE & MECHANICAL COLLECTOR ARCHIVE (Equal-Width Three-Column Collector's Vault) -->
+<section id="hauteHorlogerieSection" class="tc-section">
+    <div class="container">
+        <div class="tc-vault-header">
+            <div class="tc-vault-header-top">
+                <div>
+                    <div class="tc-eyebrow mb-1">Haute Horlogerie &amp; Mechanical Complications</div>
+                    <h2 class="tc-section-heading">The Collector's Vault</h2>
+                    <p class="tc-vault-subtitle">
+                        Swiss, French, British, Nordic and Japanese mechanical calibres — curated strictly for serious collectors and separated from everyday quartz references.
+                    </p>
+                </div>
+                <a href="/pages/shop.html?minPrice=80000" class="tc-link-editorial">View Complete Archive <span>&rarr;</span></a>
+            </div>
+            <div class="tc-vault-filter-row">
+                <div class="tc-filter-bar" id="collectorTabs" role="tablist" aria-label="Filter Collector Timepieces">
+                    <button type="button" class="tc-filter-pill active" data-tier="ALL_LUXURY">All Collector Pieces</button>
+                    <button type="button" class="tc-filter-pill" data-tier="SWISS_DRESS">Swiss &amp; Dress</button>
+                    <button type="button" class="tc-filter-pill" data-tier="CHRONO_GMT">Chronographs &amp; GMT</button>
+                    <button type="button" class="tc-filter-pill" data-tier="DIVE_TOOL">Dive &amp; Tool</button>
+                </div>
+                <span class="small text-muted tc-num" id="collectorVaultCount">Curated Mechanical Selection</span>
+            </div>
+        </div>
+
+        <div id="collectorVaultGrid" class="tc-vault-grid">
+            <div class="py-5 text-muted small" style="grid-column: 1 / -1;">Loading mechanical references…</div>
+        </div>
+
+        <div class="mt-4 pt-3 d-flex flex-wrap justify-content-between align-items-center gap-3" style="border-top:1px solid var(--tc-border);">
+            <span class="small text-muted">Each collector piece includes certificate of origin &amp; 5-position timing dossier.</span>
+            <a href="/pages/shop.html?minPrice=80000" class="btn-tc-secondary">Explore All Collector Timepieces &rarr;</a>
+        </div>
+    </div>
+</section>
+
+<!-- 4. HOROLOGICAL CRAFT & CALIBRE ENGINEERING (Dark Obsidian Section + Lazy Viewport Escapement Motion) -->
+<section class="tc-section-dark" id="atelierCraftSection">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-5">
+                <div class="tc-calibre-stage" id="tcCalibreStage">
+                    <svg viewBox="0 0 320 320" role="img" aria-label="Mechanical Gear Train and Coaxial Escapement Illustration">
+                        <defs>
+                            <linearGradient id="tcBridgeBrass" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#E5CEA0"/>
+                                <stop offset="50%" stop-color="#A68446"/>
+                                <stop offset="100%" stop-color="#6B5126"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- Movement Mainplate -->
+                        <circle cx="160" cy="160" r="144" fill="#10100F" stroke="url(#tcBridgeBrass)" stroke-opacity="0.45" stroke-width="1.2"/>
+                        <circle cx="160" cy="160" r="134" fill="none" stroke="#C5A060" stroke-opacity="0.2" stroke-dasharray="2 4"/>
+
+                        <!-- Going Barrel Gear (Upper Left) -->
+                        <g transform="translate(116 118)">
+                            <g class="tc-gear-cw">
+                                <circle r="48" fill="none" stroke="url(#tcBridgeBrass)" stroke-opacity="0.55" stroke-width="6" stroke-dasharray="5 4"/>
+                                <circle r="42" fill="#171614" stroke="#C5A060" stroke-opacity="0.4" stroke-width="1"/>
+                                <line x1="-40" y1="0" x2="40" y2="0" stroke="#A68446" stroke-opacity="0.5" stroke-width="1.5"/>
+                                <line x1="0" y1="-40" x2="0" y2="40" stroke="#A68446" stroke-opacity="0.5" stroke-width="1.5"/>
+                            </g>
+                            <circle r="6" fill="#9E2A3B" stroke="#E5CEA0" stroke-width="1.2"/>
+                        </g>
+
+                        <!-- Fourth Wheel (Center Right) -->
+                        <g transform="translate(198 148)">
+                            <g class="tc-gear-ccw">
+                                <circle r="36" fill="none" stroke="#D8BE8B" stroke-opacity="0.6" stroke-width="4.5" stroke-dasharray="4 3.5"/>
+                                <circle r="30" fill="none" stroke="#D8BE8B" stroke-opacity="0.35" stroke-width="1"/>
+                                <line x1="-28" y1="-16" x2="28" y2="16" stroke="#D8BE8B" stroke-opacity="0.45" stroke-width="1.2"/>
+                                <line x1="16" y1="-28" x2="-16" y2="28" stroke="#D8BE8B" stroke-opacity="0.45" stroke-width="1.2"/>
+                            </g>
+                            <circle r="4.5" fill="#9E2A3B" stroke="#E5CEA0" stroke-width="1"/>
+                        </g>
+
+                        <!-- Free-Sprung Balance Assembly (Lower Center) -->
+                        <g transform="translate(152 214)">
+                            <g class="tc-escapement-pulse">
+                                <circle r="38" fill="none" stroke="url(#tcBridgeBrass)" stroke-width="2.2"/>
+                                <circle r="30" fill="none" stroke="#E5CEA0" stroke-opacity="0.35" stroke-width="0.9" stroke-dasharray="6 3"/>
+                                <line x1="-36" y1="0" x2="36" y2="0" stroke="#E5CEA0" stroke-width="1.4"/>
+                            </g>
+                            <path d="M-52 0 L52 0" stroke="url(#tcBridgeBrass)" stroke-width="2.6"/>
+                            <circle r="5.5" fill="#9E2A3B" stroke="#E5CEA0" stroke-width="1.2"/>
+                        </g>
+                    </svg>
+                    <div class="small text-uppercase mt-3" style="letter-spacing:0.18em;color:var(--tc-gold-light);font-size:10px;">
+                        Atelier Chronometry &middot; Five-Position Isochronism
+                    </div>
                 </div>
             </div>
-            <div class="d-flex flex-wrap align-items-center gap-3">
-                <span class="tc-countdown-pill" id="tcPromoCountdown" aria-live="polite">Ends in 08h : 42m : 19s</span>
-                <button type="button" id="shop50OffBtn" class="btn-tc-primary py-2 px-3"
-                        style="background:#FAF9F6;color:#141311;border-color:#FAF9F6;font-size:11px;font-weight:700;">
-                    Shop 50% Off &rarr;
-                </button>
+
+            <div class="col-lg-7">
+                <div class="tc-eyebrow mb-2" style="color:var(--tc-gold-light);">The TimeCraft Standard</div>
+                <h2 class="tc-display-editorial text-white mb-3" style="font-size:clamp(2.1rem, 3.6vw, 3.3rem);">
+                    Every Calibre Inspected Before It Enters the Vault.
+                </h2>
+                <p class="mb-4" style="color:rgba(248,246,241,0.74);max-width:600px;">
+                    Whether acquiring a hand-finished Genevan moonphase or an ultra-thin ceramic dress watch, every reference undergoes acoustic timing verification, gasket pressure testing, and serial provenance registration prior to dispatch.
+                </p>
+
+                <div class="row g-4 mt-2">
+                    <div class="col-md-4">
+                        <div class="tc-pillar-card-dark">
+                            <div class="tc-eyebrow mb-1" style="color:var(--tc-gold-light);">01 &middot; Provenance</div>
+                            <h3 class="tc-serif text-white fs-4 mb-2">Direct Maison Allocation</h3>
+                            <p class="small mb-0" style="color:rgba(248,246,241,0.68);">
+                                Official manufacturer warranty cards registered directly to your collector dossier.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="tc-pillar-card-dark">
+                            <div class="tc-eyebrow mb-1" style="color:var(--tc-gold-light);">02 &middot; Regulation</div>
+                            <h3 class="tc-serif text-white fs-4 mb-2">12-Point Bench Protocol</h3>
+                            <p class="small mb-0" style="color:rgba(248,246,241,0.68);">
+                                Amplitude, beat error, and water-resistance gaskets verified by certified watchmakers.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="tc-pillar-card-dark">
+                            <div class="tc-eyebrow mb-1" style="color:var(--tc-gold-light);">03 &middot; Acquisition</div>
+                            <h3 class="tc-serif text-white fs-4 mb-2">Bespoke Settlement</h3>
+                            <p class="small mb-0" style="color:rgba(248,246,241,0.68);">
+                                Seamless online checkout via Razorpay &amp; PayU, or Cash on Delivery up to ₹5,00,000.
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- 3. Authorized Maisons -->
-<section class="container py-5">
-    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 border-bottom pb-3 mb-4">
-        <div>
-            <div class="tc-eyebrow">Authorized Houses</div>
-            <h2 class="tc-serif h1 mb-0">Explore by Maison</h2>
-        </div>
-        <a href="/pages/brands.html" class="small text-uppercase fw-semibold">All Maisons &rarr;</a>
-    </div>
-    <div id="brandsGrid" class="tc-maison-grid"></div>
-</section>
-
-<!-- 4. Featured Timepieces (4-Column CSS Grid + Live Filter Pills) -->
-<section id="featuredSection" class="container py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 border-bottom pb-3 mb-4">
-        <div>
-            <div class="tc-eyebrow">Curated Selection</div>
-            <h2 class="tc-serif h1 mb-0">Featured Timepieces</h2>
-        </div>
-        <div class="d-flex flex-wrap gap-2" id="homeFilterPills" role="tablist" aria-label="Filter Featured Watches">
-            <button type="button" class="tc-filter-pill active" data-filter="all">All Pieces</button>
-            <button type="button" class="tc-filter-pill sale-pill" data-filter="sale">Up to 50% Off</button>
-            <button type="button" class="tc-filter-pill" data-filter="indian">Titan &amp; Fastrack</button>
-            <button type="button" class="tc-filter-pill" data-filter="automatic">Automatic</button>
-            <button type="button" class="tc-filter-pill" data-filter="new">New Arrivals</button>
-        </div>
-    </div>
-    <div id="featuredGrid" class="tc-product-grid">
-        <div class="text-muted small py-5">Loading curated timepieces…</div>
-    </div>
-    <div class="text-center mt-4">
-        <a href="/pages/shop.html" class="btn-tc-outline">Browse Complete Archive &rarr;</a>
-    </div>
-</section>
-
-<!-- 5. Mid-Page Editorial Promo Banner with Copy Code -->
-<section class="container py-4">
-    <div class="p-4 p-lg-5 tc-reveal" style="background:linear-gradient(120deg, #EFECE6 0%, #E7E1D5 100%);border:1px solid var(--tc-border);border-radius:3px;">
-        <div class="row align-items-center g-4">
-            <div class="col-lg-8">
-                <div class="tc-eyebrow mb-1">Private Collector Privilege</div>
-                <h2 class="tc-serif display-6 mb-2">Extra 15% Off Orders Above ₹50,000</h2>
-                <p class="text-muted mb-0" style="max-width:600px;">
-                    Apply code <strong class="tc-num" style="color:var(--tc-charcoal);">SEASON15</strong> at checkout for complimentary insured armoured delivery and an additional 15% privilege on Swiss &amp; heritage pieces.
+<!-- 5. CURATED BY SILHOUETTE & PROPORTION (Tier-Separated Men's & Women's Collections) -->
+<section id="silhouetteSection" class="tc-section">
+    <div class="container">
+        <div class="tc-section-header">
+            <div>
+                <div class="tc-eyebrow mb-1">Curated by Proportion</div>
+                <h2 class="tc-section-heading">Men's &amp; Women's Horology</h2>
+                <p class="text-muted small mb-0 mt-1" id="genderShowcaseSubtitle">
+                    Mechanical collector references for men (₹80,000+), thoughtfully separated from contemporary everyday editions.
                 </p>
             </div>
-            <div class="col-lg-4 text-lg-end">
-                <div class="d-inline-flex flex-wrap align-items-center gap-2">
-                    <span class="px-3 py-2 bg-white border tc-num fw-semibold" style="letter-spacing:0.14em;">SEASON15</span>
-                    <button type="button" id="copyPromoBtn" class="btn-tc-primary" style="white-space:nowrap;">
-                        Copy Code
+            <div class="tc-filter-bar" id="genderTabs" role="tablist" aria-label="Curated Silhouette Collections">
+                <button type="button" class="tc-filter-pill active" data-gender="MEN_COLLECTOR">Men's Collector (₹80K+)</button>
+                <button type="button" class="tc-filter-pill" data-gender="WOMEN_HERITAGE">Women's Heritage</button>
+                <button type="button" class="tc-filter-pill" data-gender="WOMEN_CONTEMPORARY">Women's Contemporary (&lt; ₹50K)</button>
+                <button type="button" class="tc-filter-pill" data-gender="UNISEX_MODERN">Minimal &amp; Unisex</button>
+            </div>
+        </div>
+
+        <div id="genderGrid" class="tc-product-grid">
+            <div class="text-muted small py-5">Loading curated silhouettes…</div>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4 pt-3" style="border-top:1px solid var(--tc-border);">
+            <a id="genderViewAllBtn" href="/pages/shop.html?gender=MEN&minPrice=80000" class="btn-tc-primary">Explore Men's Collector Archive &rarr;</a>
+            <a href="/pages/shop.html?gender=WOMEN" class="tc-link-editorial">Browse All Women's Timepieces <span>&rarr;</span></a>
+        </div>
+    </div>
+</section>
+
+<!-- 6. CONTEMPORARY & PIONEERING INDIAN HOROLOGY (Dedicated Warm Stone Section < ₹50,000) -->
+<section id="indianHorologySection" class="tc-section-stone">
+    <div class="container">
+        <div class="tc-section-header">
+            <div>
+                <div class="tc-eyebrow mb-1">Hosur &amp; Bengaluru Ateliers</div>
+                <h2 class="tc-section-heading">Contemporary Indian Horology &middot; Titan &amp; Fastrack</h2>
+                <p class="text-muted small mb-0 mt-1" style="max-width:620px;">
+                    Presented in its own dedicated gallery: wafer-thin ceramic dress silhouettes, in-house open-heart automatics, and contemporary daily instruments crafted in India.
+                </p>
+            </div>
+            <a href="/pages/shop.html?maxPrice=50000" class="tc-link-editorial">Explore Contemporary Edit <span>&rarr;</span></a>
+        </div>
+        <div id="indianGrid" class="tc-product-grid">
+            <div class="text-muted small py-4">Loading Indian horology collection…</div>
+        </div>
+    </div>
+</section>
+
+<!-- 7. COLLECTOR CHRONICLES & EDITORIAL PERSPECTIVES -->
+<section id="chroniclesSection" class="tc-section">
+    <div class="container">
+        <div class="tc-section-header">
+            <div>
+                <div class="tc-eyebrow mb-1">The Horological Journal</div>
+                <h2 class="tc-section-heading">Collector Chronicles &amp; Wrist Studies</h2>
+            </div>
+            <span class="small text-muted">Select a collector profile to inspect their reference pairing</span>
+        </div>
+
+        <div class="row g-4 align-items-stretch">
+            <div class="col-lg-5">
+                <div class="tc-celebrity-frame h-100">
+                    <img id="ambassadorPortrait"
+                         src="https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=1000&q=80"
+                         alt="Collector Wrist Study"
+                         loading="lazy"
+                         onerror="this.onerror=null;this.src='/images/celebrity-campaign.svg';">
+                    <div style="position:absolute;left:18px;right:18px;bottom:18px;background:rgba(20,20,20,0.9);backdrop-filter:blur(8px);padding:16px 18px;border:1px solid rgba(166,132,70,0.42);color:#F8F6F1;">
+                        <div class="tc-eyebrow mb-1" id="ambassadorTag" style="color:var(--tc-gold-light);">Geneva Complication Patron</div>
+                        <div class="tc-serif fs-4" id="ambassadorName" style="color:#F8F6F1;">Vikramaditya Rao</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7 d-flex flex-column justify-content-between gap-4">
+                <div class="tc-panel">
+                    <div class="tc-eyebrow mb-2">Collector Essay</div>
+                    <blockquote class="tc-serif fs-2 mb-4" id="ambassadorQuote" style="line-height:1.26;">
+                        “A hand-finished moonphase dress watch is the quietest statement in any room — mechanical poetry you wind with intention every morning.”
+                    </blockquote>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pt-3" style="border-top:1px solid var(--tc-border);">
+                        <div>
+                            <div class="tc-eyebrow" style="color:var(--tc-muted);font-size:9.5px;">Reference on the Wrist</div>
+                            <div class="tc-serif fs-4" id="ambassadorWatchName">Aurelian Genève &middot; Lune Moonphase 40</div>
+                            <div class="small text-muted tc-price" id="ambassadorWatchMeta">Automatic &middot; 40 mm &middot; Swiss Made</div>
+                        </div>
+                        <a id="ambassadorShopLink" href="/pages/shop.html" class="btn-tc-primary">
+                            Inspect Reference &rarr;
+                        </a>
+                    </div>
+                </div>
+
+                <div class="vstack gap-2" id="ambassadorTabs" role="tablist" aria-label="Select Collector Profile">
+                    <button type="button" class="tc-ambassador-tab active" data-amb="0">
+                        <div class="d-flex justify-content-between align-items-center gap-3">
+                            <div>
+                                <div class="fw-semibold">Vikramaditya Rao</div>
+                                <div class="small text-muted">Geneva Complication Patron &middot; Swiss Moonphase &amp; Dress Calibres</div>
+                            </div>
+                            <span class="tc-eyebrow tc-num">I</span>
+                        </div>
+                    </button>
+                    <button type="button" class="tc-ambassador-tab" data-amb="1">
+                        <div class="d-flex justify-content-between align-items-center gap-3">
+                            <div>
+                                <div class="fw-semibold">Ananya Dev</div>
+                                <div class="small text-muted">Principal Architect, Bengaluru &middot; Ultra-Slim Ceramic &amp; Dress Silhouettes</div>
+                            </div>
+                            <span class="tc-eyebrow tc-num">II</span>
+                        </div>
+                    </button>
+                    <button type="button" class="tc-ambassador-tab" data-amb="2">
+                        <div class="d-flex justify-content-between align-items-center gap-3">
+                            <div>
+                                <div class="fw-semibold">Kabir Malhotra</div>
+                                <div class="small text-muted">Transcontinental Aviator &amp; Diver &middot; Titanium GMT &amp; Saturation Instruments</div>
+                            </div>
+                            <span class="tc-eyebrow tc-num">III</span>
+                        </div>
                     </button>
                 </div>
             </div>
@@ -191,101 +563,19 @@
     </div>
 </section>
 
-<!-- 6. Interactive Celebrity & Brand Ambassador Campaign Showcase -->
-<section id="ambassadorSection" class="container py-5">
-    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 border-bottom pb-3 mb-4">
-        <div>
-            <div class="tc-eyebrow">Style Icons &amp; Horology</div>
-            <h2 class="tc-serif h1 mb-0">Celebrity &amp; Ambassador Edit</h2>
-        </div>
-        <span class="small text-muted">Select an ambassador to preview their signature timepiece</span>
-    </div>
-
-    <div class="row g-4 align-items-stretch tc-reveal">
-        <div class="col-lg-5">
-            <div class="tc-celebrity-frame h-100">
-                <img id="ambassadorPortrait"
-                     src="/images/celebrity-campaign.svg"
-                     data-celebrity-img="/images/celebrity-campaign.jpg"
-                     alt="TimeCraft Brand Ambassador Campaign Portrait"
-                     onerror="this.onerror=null;this.src='/images/celebrity-campaign.svg';">
-                <div style="position:absolute;left:16px;right:16px;bottom:16px;background:rgba(20,19,17,0.86);backdrop-filter:blur(8px);padding:14px 16px;border:1px solid rgba(176,141,87,0.45);border-radius:2px;color:#FAF9F6;">
-                    <div class="tc-eyebrow" id="ambassadorTag" style="color:#DFC28C;">Cinema &amp; Black-Tie Collector</div>
-                    <div class="tc-serif fs-4" id="ambassadorName" style="color:#FAF9F6;">Vikramaditya Rao</div>
-                </div>
+<!-- 8. MAISON MANIFESTO CLOSING STATEMENT -->
+<section class="py-5">
+    <div class="container py-lg-3">
+        <div class="tc-panel-stone text-center py-5 px-4">
+            <div class="tc-eyebrow mb-2">The TimeCraft Manifesto</div>
+            <blockquote class="tc-serif mx-auto mb-4" style="font-size:clamp(1.75rem, 2.8vw, 2.5rem);max-width:760px;line-height:1.22;">
+                “A fine timepiece does not merely measure hours — it preserves the craftsmanship of the hands that regulated it.”
+            </blockquote>
+            <div class="d-flex flex-wrap justify-content-center gap-3">
+                <a href="/pages/about.html" class="btn-tc-primary">Read the Maison Story</a>
+                <a href="/pages/contact.html" class="btn-tc-secondary">Private Concierge Appointment</a>
             </div>
         </div>
-        <div class="col-lg-7 d-flex flex-column justify-content-between gap-4">
-            <div class="tc-panel" style="background:#FFFFFF;">
-                <div class="tc-eyebrow mb-2">Ambassador Notes</div>
-                <blockquote class="tc-serif fs-2 mb-3" id="ambassadorQuote" style="line-height:1.25;">
-                    “A mechanical dress watch is the quietest statement in any room — precision you feel every morning.”
-                </blockquote>
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pt-3 border-top">
-                    <div>
-                        <div class="small text-muted text-uppercase" style="letter-spacing:0.12em;">Signature Pairing</div>
-                        <div class="fw-semibold fs-6" id="ambassadorWatchName">Aurelian Genève · Heritage Classique 38</div>
-                        <div class="small text-muted tc-price" id="ambassadorWatchMeta">Automatic · 38mm · Swiss Made</div>
-                    </div>
-                    <a id="ambassadorShopLink" href="/pages/shop.html" class="btn-tc-primary" style="white-space:nowrap;">
-                        Shop Signature Watch &rarr;
-                    </a>
-                </div>
-            </div>
-
-            <div class="vstack gap-2" id="ambassadorTabs" role="tablist" aria-label="Select Brand Ambassador">
-                <button type="button" class="tc-ambassador-tab active" data-amb="0">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="fw-semibold">Vikramaditya Rao</div>
-                            <div class="small text-muted">Cinema &amp; Black-Tie Collector · Swiss Dress Heritage</div>
-                        </div>
-                        <span class="tc-eyebrow">01</span>
-                    </div>
-                </button>
-                <button type="button" class="tc-ambassador-tab" data-amb="1">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="fw-semibold">Ananya Dev</div>
-                            <div class="small text-muted">Architectural Minimalist · Titan Edge Ceramic</div>
-                        </div>
-                        <span class="tc-eyebrow">02</span>
-                    </div>
-                </button>
-                <button type="button" class="tc-ambassador-tab" data-amb="2">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="fw-semibold">Kabir Malhotra</div>
-                            <div class="small text-muted">Motorsport &amp; Chronograph Enthusiast · Titanium GMT &amp; Fastrack</div>
-                        </div>
-                        <span class="tc-eyebrow">03</span>
-                    </div>
-                </button>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- 7. Indian Horology Spotlight (Titan & Fastrack) -->
-<section class="container py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 border-bottom pb-3 mb-4">
-        <div>
-            <div class="tc-eyebrow">Indian Watchmakers</div>
-            <h2 class="tc-serif h1 mb-0">Titan &amp; Fastrack Editions</h2>
-        </div>
-        <a href="/pages/shop.html" class="small text-uppercase fw-semibold">Shop All &rarr;</a>
-    </div>
-    <div id="indianGrid" class="tc-product-grid"></div>
-</section>
-
-<!-- 8. Editorial Philosophy -->
-<section class="container py-5">
-    <div class="tc-panel text-center py-5 tc-reveal" style="background:var(--tc-stone);">
-        <div class="tc-eyebrow">The TimeCraft Philosophy</div>
-        <blockquote class="tc-serif display-6 mx-auto mb-3" style="max-width:740px;">
-            “A fine timepiece does not merely measure hours — it marks the chapters you choose to remember.”
-        </blockquote>
-        <a href="/pages/about.html" class="btn-tc-primary mt-2">Read Our Story</a>
     </div>
 </section>
 
@@ -293,173 +583,215 @@
 <script src="/js/app.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Immediately synchronize hero mechanical watch to exact live Asia/Kolkata (IST) time
+    TC.initHorologicalClock({ timeZone: 'Asia/Kolkata' });
+
+    // 2. Lazy-activate Calibre Engineering SVG motion only while visible in viewport
+    const calibreStage = document.getElementById('tcCalibreStage');
+    if (calibreStage && 'IntersectionObserver' in window) {
+        const calObs = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                calibreStage.classList.toggle('is-inview', entry.isIntersecting);
+            });
+        }, { threshold: 0.15 });
+        calObs.observe(calibreStage);
+    }
+
+    // 3. Mount shared header, footer, drawers & scroll animations
     await TC.mountChrome();
 
-    // Scroll reveal observer
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry, idx) => {
-            if (entry.isIntersecting) {
-                entry.target.style.transitionDelay = (idx % 4) * 55 + 'ms';
-                entry.target.classList.add('visible');
-                observer.unobserve(entry.target);
-            }
-        });
-    }, { threshold: 0.08 });
-    document.querySelectorAll('.tc-reveal').forEach(el => observer.observe(el));
-
-    // Live Countdown Timer for 50% OFF Campaign
-    const countdownEl = document.getElementById('tcPromoCountdown');
-    if (countdownEl) {
-        let remainingSec = (8 * 3600) + (42 * 60) + 19;
-        const tick = () => {
-            const h = String(Math.floor(remainingSec / 3600)).padStart(2, '0');
-            const m = String(Math.floor((remainingSec % 3600) / 60)).padStart(2, '0');
-            const s = String(remainingSec % 60).padStart(2, '0');
-            countdownEl.textContent = `Ends in ${h}h : ${m}m : ${s}s`;
-            if (remainingSec > 0) remainingSec--;
-        };
-        tick();
-        setInterval(tick, 1000);
-    }
-
-    // Copy Promo Code button
-    const copyBtn = document.getElementById('copyPromoBtn');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', async () => {
-            try {
-                await navigator.clipboard.writeText('SEASON15');
-            } catch { /* fallback */ }
-            copyBtn.textContent = 'COPIED ✓';
-            copyBtn.style.background = '#235D3A';
-            copyBtn.style.borderColor = '#235D3A';
-            TC.toast('Promo code SEASON15 copied to clipboard');
-            setTimeout(() => {
-                copyBtn.textContent = 'Copy Code';
-                copyBtn.style.background = '';
-                copyBtn.style.borderColor = '';
-            }, 2200);
-        });
-    }
-
     let allProducts = [];
+
+    function isIndianContemporary(w) {
+        return /titan|fastrack/i.test(w.brandName || '');
+    }
+
+    function isCollectorTier(w) {
+        return Number(w.sellingPrice || 0) >= 55000 && !isIndianContemporary(w);
+    }
 
     function renderGrid(host, list) {
         if (!host) return;
         if (!list.length) {
-            host.innerHTML = '<div class="tc-panel text-center text-muted py-4" style="grid-column: 1 / -1;">No watches matched this selection. Try another filter.</div>';
+            host.innerHTML = '<div class="tc-panel text-center text-muted py-4" style="grid-column: 1 / -1;">No references matched this horological filter.</div>';
             return;
         }
         host.innerHTML = list.map(w => TC.renderWatchCard(w, { bare: true })).join('');
+        TC.initScrollAnimations();
     }
 
-    function applyHomeFilter(filterKey) {
-        document.querySelectorAll('#homeFilterPills .tc-filter-pill').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.filter === filterKey);
+    function applyCollectorVault(tierKey) {
+        document.querySelectorAll('#collectorTabs .tc-filter-pill').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tier === tierKey);
         });
-        let filtered = allProducts;
-        if (filterKey === 'sale') {
-            filtered = allProducts.filter(w => Number(w.discountPercent) > 0);
-            if (!filtered.length) filtered = allProducts.slice(0, 8);
-        } else if (filterKey === 'indian') {
-            filtered = allProducts.filter(w => /titan|fastrack/i.test(w.brandName || ''));
-        } else if (filterKey === 'automatic') {
-            filtered = allProducts.filter(w => /automatic/i.test(w.movementType || ''));
-        } else if (filterKey === 'new') {
-            filtered = allProducts.filter(w => w.newArrival);
+
+        const luxuryPool = allProducts
+            .filter(isCollectorTier)
+            .sort((a, b) => Number(b.sellingPrice || 0) - Number(a.sellingPrice || 0));
+
+        let filtered = luxuryPool;
+        if (tierKey === 'SWISS_DRESS') {
+            filtered = luxuryPool.filter(w => /aurelian|vérac|verac|dress|moonphase|tourbillon|petite/i.test(
+                `${w.brandName} ${w.name} ${w.categoryName || ''}`
+            ));
+        } else if (tierKey === 'CHRONO_GMT') {
+            filtered = luxuryPool.filter(w => /kestrel|sora|chrono|gmt|pilot/i.test(
+                `${w.brandName} ${w.name} ${w.categoryName || ''}`
+            ));
+        } else if (tierKey === 'DIVE_TOOL') {
+            filtered = luxuryPool.filter(w => /halden|nordhavn|dive|pelagos|fjord|field/i.test(
+                `${w.brandName} ${w.name} ${w.categoryName || ''}`
+            ) || Number(w.waterResistanceM || 0) >= 150);
         }
-        renderGrid(document.getElementById('featuredGrid'), filtered.slice(0, 8));
+
+        if (!filtered.length) filtered = luxuryPool;
+
+        const visibleWatches = filtered.slice(0, 6);
+        const countEl = document.getElementById('collectorVaultCount');
+        if (countEl) {
+            countEl.textContent = `Showing ${visibleWatches.length} of ${filtered.length} Collector ${filtered.length === 1 ? 'Reference' : 'References'}`;
+        }
+        renderGrid(document.getElementById('collectorVaultGrid'), visibleWatches);
     }
 
-    document.querySelectorAll('#homeFilterPills .tc-filter-pill').forEach(btn => {
-        btn.addEventListener('click', () => applyHomeFilter(btn.dataset.filter));
+    document.querySelectorAll('#collectorTabs .tc-filter-pill').forEach(btn => {
+        btn.addEventListener('click', () => applyCollectorVault(btn.dataset.tier));
     });
 
-    document.getElementById('shop50OffBtn')?.addEventListener('click', () => {
-        applyHomeFilter('sale');
-        document.getElementById('featuredSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    function applySilhouetteFilter(modeKey) {
+        document.querySelectorAll('#genderTabs .tc-filter-pill').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.gender === modeKey);
+        });
+        const subEl = document.getElementById('genderShowcaseSubtitle');
+        const ctaEl = document.getElementById('genderViewAllBtn');
+        let list = [];
+
+        if (modeKey === 'WOMEN_HERITAGE') {
+            list = allProducts.filter(w => w.gender === 'WOMEN' && Number(w.sellingPrice || 0) >= 45000);
+            if (!list.length) list = allProducts.filter(w => w.gender === 'WOMEN');
+            if (subEl) subEl.textContent = "Parisian & European mechanical and petite dress references crafted for discerning women collectors.";
+            if (ctaEl) {
+                ctaEl.href = '/pages/shop.html?gender=WOMEN&minPrice=45000';
+                ctaEl.textContent = "Explore Women's Heritage Collection →";
+            }
+        } else if (modeKey === 'WOMEN_CONTEMPORARY') {
+            list = allProducts.filter(w => w.gender === 'WOMEN' && Number(w.sellingPrice || 0) < 50000);
+            if (subEl) subEl.textContent = "Refined contemporary Women's silhouettes under ₹50,000 from Sora Tokei, Nordhavn, Halden & Titan Raga.";
+            if (ctaEl) {
+                ctaEl.href = '/pages/shop.html?gender=WOMEN&maxPrice=50000';
+                ctaEl.textContent = "Shop Women's Contemporary (< ₹50,000) →";
+            }
+        } else if (modeKey === 'UNISEX_MODERN') {
+            list = allProducts.filter(w => w.gender === 'UNISEX' || (Number(w.caseDiameterMm || 40) >= 36 && Number(w.caseDiameterMm || 40) <= 39 && Number(w.sellingPrice || 0) < 90000));
+            if (subEl) subEl.textContent = "Architectural 36 mm – 39 mm mid-size proportions balanced for any wrist.";
+            if (ctaEl) {
+                ctaEl.href = '/pages/shop.html?minDiameter=36&maxDiameter=39';
+                ctaEl.textContent = "Explore Mid-Size & Unisex Watches →";
+            }
+        } else {
+            // MEN_COLLECTOR: strictly >= ₹80,000 so entry-level watches never mix with haute horlogerie
+            list = allProducts.filter(w => w.gender === 'MEN' && Number(w.sellingPrice || 0) >= 80000);
+            if (subEl) subEl.textContent = "Mechanical collector references for men (₹80,000+), thoughtfully separated from contemporary everyday editions.";
+            if (ctaEl) {
+                ctaEl.href = '/pages/shop.html?gender=MEN&minPrice=80000';
+                ctaEl.textContent = "Explore Men's Collector Archive →";
+            }
+        }
+        renderGrid(document.getElementById('genderGrid'), list.slice(0, 4));
+    }
+
+    document.querySelectorAll('#genderTabs .tc-filter-pill').forEach(btn => {
+        btn.addEventListener('click', () => applySilhouetteFilter(btn.dataset.gender));
     });
 
-    // Ambassador Showcase Data
-    const ambassadors = [
+    const chronicles = [
         {
             name: 'Vikramaditya Rao',
-            tag: 'Cinema & Black-Tie Collector',
-            quote: '“A mechanical dress watch is the quietest statement in any room — precision you feel every morning.”',
-            portrait: '/images/celebrity-campaign.svg',
-            match: (w) => /aurelian|verac|classique/i.test((w.brandName || '') + ' ' + (w.name || ''))
+            tag: 'Geneva Complication Patron · Mumbai',
+            quote: '“A hand-finished moonphase dress watch is the quietest statement in any room — mechanical poetry you wind with intention every morning.”',
+            fallbackImg: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=1000&q=80',
+            match: (w) => /aurelian/i.test(w.brandName || '')
         },
         {
             name: 'Ananya Dev',
-            tag: 'Architectural Minimalist · Bengaluru',
-            quote: '“Ultra-slim Indian horology meets timeless geometry. Titan Edge feels weightless from studio to gallery.”',
-            portrait: '/images/celebrity-campaign.svg',
-            match: (w) => /titan/i.test(w.brandName || '')
+            tag: 'Principal Architect · Bengaluru',
+            quote: '“Ultra-slim ceramic engineering meets pure architectural proportion. On the drafting table or at an evening Vernissage, nothing feels more effortless.”',
+            fallbackImg: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=1000&q=80',
+            match: (w) => /edge|ceramic|vérac|verac/i.test(`${w.brandName || ''} ${w.name || ''}`)
         },
         {
             name: 'Kabir Malhotra',
-            tag: 'Motorsport & Chronograph Enthusiast',
-            quote: '“Whether timing laps or crossing time zones, a bold dial and titanium case never miss a beat.”',
-            portrait: '/images/celebrity-campaign.svg',
-            match: (w) => /fastrack|sora|gmt|diver/i.test((w.brandName || '') + ' ' + (w.name || ''))
+            tag: 'Transcontinental Aviator & Collector',
+            quote: '“Crossing three time zones in a cockpit demands an independent jumping hour hand, high-contrast lume, and Grade-5 titanium lightness.”',
+            fallbackImg: 'https://images.unsplash.com/photo-1547996160-81dfa63595aa?w=1000&q=80',
+            match: (w) => /gmt|kestrel|halden/i.test(`${w.brandName || ''} ${w.name || ''}`)
         }
     ];
 
-    function selectAmbassador(index) {
-        const amb = ambassadors[index] || ambassadors[0];
+    function selectChronicle(index) {
+        const item = chronicles[index] || chronicles[0];
         document.querySelectorAll('#ambassadorTabs .tc-ambassador-tab').forEach((t, i) => {
             t.classList.toggle('active', i === index);
         });
-        document.getElementById('ambassadorName').textContent = amb.name;
-        document.getElementById('ambassadorTag').textContent = amb.tag;
-        document.getElementById('ambassadorQuote').textContent = amb.quote;
+        document.getElementById('ambassadorName').textContent = item.name;
+        document.getElementById('ambassadorTag').textContent = item.tag;
+        document.getElementById('ambassadorQuote').textContent = item.quote;
 
-        const watch = allProducts.find(amb.match) || allProducts[0];
+        const watch = allProducts.find(item.match) || allProducts[0];
         const portraitEl = document.getElementById('ambassadorPortrait');
         if (watch) {
             document.getElementById('ambassadorWatchName').textContent = `${watch.brandName} · ${watch.name}`;
             document.getElementById('ambassadorWatchMeta').textContent =
-                `${watch.movementType || 'Automatic'} · ${watch.caseDiameterMm || 40}mm · ${TC.formatInr(watch.sellingPrice)}`;
+                `${watch.movementType || 'Automatic'} · ${watch.caseDiameterMm || 40} mm · ${TC.formatInr(watch.sellingPrice)}`;
             document.getElementById('ambassadorShopLink').href = `/pages/product-details.html?slug=${encodeURIComponent(watch.slug)}`;
-            if (portraitEl && watch.primaryImageUrl) {
-                portraitEl.src = watch.primaryImageUrl;
+            if (portraitEl) {
+                portraitEl.src = watch.primaryImageUrl || item.fallbackImg;
             }
         } else if (portraitEl) {
-            portraitEl.src = amb.portrait;
+            portraitEl.src = item.fallbackImg;
         }
     }
 
     document.querySelectorAll('#ambassadorTabs .tc-ambassador-tab').forEach(btn => {
-        btn.addEventListener('click', () => selectAmbassador(Number(btn.dataset.amb)));
+        btn.addEventListener('click', () => selectChronicle(Number(btn.dataset.amb)));
     });
 
-    // Fetch live catalog data
+    // 4. Load Live Storefront Data from Spring Boot API
     try {
         const [brands, productsPage] = await Promise.all([
             TC.api('/brands'),
-            TC.api('/products?size=30')
+            TC.api('/products?size=48')
         ]);
 
         const bHost = document.getElementById('brandsGrid');
         if (bHost && Array.isArray(brands)) {
             bHost.innerHTML = brands.map(b => `
-                <a href="/pages/shop.html?brand=${encodeURIComponent(b.slug || b.id)}" class="tc-maison-card">
-                    ${b.logoUrl ? `<img src="${TC.escapeHtml(b.logoUrl)}" alt="${TC.escapeHtml(b.name)}" style="height:30px;object-fit:contain;" class="mb-2">` : ''}
-                    <span class="small fw-semibold">${TC.escapeHtml(b.name)}</span>
-                    <span class="text-muted" style="font-size:11px;">${TC.escapeHtml(b.countryOfOrigin || '')}</span>
+                <a href="/pages/brand-details.html?slug=${encodeURIComponent(b.slug || b.id)}" class="tc-maison-card">
+                    ${b.logoUrl
+                        ? `<img src="${TC.escapeHtml(b.logoUrl)}" alt="${TC.escapeHtml(b.name)}" style="height:28px;object-fit:contain;" class="mb-2" loading="lazy">`
+                        : `<div class="tc-maison-monogram">${TC.escapeHtml(b.name)}</div>`}
+                    <span class="tc-serif fs-5 fw-medium">${TC.escapeHtml(b.name)}</span>
+                    <span class="tc-eyebrow mt-1" style="color:var(--tc-muted);font-size:9.5px;">
+                        ${TC.escapeHtml(b.countryOfOrigin || 'Horology')}${b.foundedYear ? ' · Est. ' + b.foundedYear : ''}
+                    </span>
                 </a>
             `).join('');
         }
 
         allProducts = (productsPage && productsPage.content) ? productsPage.content : [];
-        applyHomeFilter('all');
-        selectAmbassador(0);
+        applyCollectorVault('ALL_LUXURY');
+        applySilhouetteFilter('MEN_COLLECTOR');
+        selectChronicle(0);
 
-        const indianList = allProducts.filter(w => /titan|fastrack/i.test(w.brandName || '')).slice(0, 4);
+        const indianList = allProducts
+            .filter(isIndianContemporary)
+            .sort((a, b) => Number(b.sellingPrice || 0) - Number(a.sellingPrice || 0))
+            .slice(0, 4);
         renderGrid(document.getElementById('indianGrid'), indianList);
     } catch (err) {
         console.error('Homepage load error:', err);
-        const fHost = document.getElementById('featuredGrid');
-        if (fHost) fHost.innerHTML = `<div class="tc-panel text-danger py-4 small" style="grid-column: 1 / -1;">Unable to load watches: ${TC.escapeHtml(err.message)}</div>`;
+        const cHost = document.getElementById('collectorVaultGrid');
+        if (cHost) cHost.innerHTML = `<div class="tc-panel text-danger py-4 small" style="grid-column: 1 / -1;">Unable to load horological archive: ${TC.escapeHtml(err.message)}</div>`;
     }
 });
 </script>

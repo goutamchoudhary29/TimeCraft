@@ -8,6 +8,7 @@ import com.timecraft.order.dto.OrderDtos.PlaceOrderRequest;
 import com.timecraft.order.entity.Order;
 import com.timecraft.order.service.InvoicePdfService;
 import com.timecraft.order.service.OrderService;
+import com.timecraft.payment.service.RazorpayPaymentService;
 import com.timecraft.security.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class OrderController {
 
     private final OrderService orderSvc;
     private final InvoicePdfService invoiceSvc;
+    private final RazorpayPaymentService paymentSvc;
 
     @PostMapping
     public ResponseEntity<OrderDetailDto> createOrder(
@@ -57,6 +59,11 @@ public class OrderController {
                                         @RequestBody(required = false) CancelOrderRequest body) {
         return orderSvc.cancelByCustomer(SecurityUtils.requireUserId(), id,
                 body != null ? body.reason() : null);
+    }
+
+    @PostMapping("/{idOrNumber}/switch-to-cod")
+    public OrderDetailDto switchOrderToCod(@PathVariable String idOrNumber) {
+        return paymentSvc.switchOrderToCod(SecurityUtils.requireUserId(), idOrNumber);
     }
 
     @GetMapping(value = "/{idOrNumber}/invoice", produces = MediaType.APPLICATION_PDF_VALUE)

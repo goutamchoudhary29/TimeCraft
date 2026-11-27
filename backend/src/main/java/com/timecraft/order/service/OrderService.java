@@ -144,7 +144,7 @@ public class OrderService {
                 throw BusinessException.badRequest("COD_DISABLED",
                         "Cash on Delivery is currently disabled. Please pay online via Razorpay.");
             }
-            BigDecimal codMax = storeConfigService.getDecimal("cod_max_amount", "50000.00");
+            BigDecimal codMax = storeConfigService.getMaxCodAmount();
             if (totals.grandTotal().compareTo(codMax) > 0) {
                 throw BusinessException.badRequest("COD_LIMIT_EXCEEDED",
                         "Cash on Delivery is available only for orders up to ₹" + codMax.toPlainString() + ". Please pay online via Razorpay.");
@@ -342,7 +342,7 @@ public class OrderService {
 
     @Transactional
     public void handlePaymentFailedOrExpired(Order order, String reason, boolean terminal) {
-        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+        if (order.getPaymentStatus() == PaymentStatus.PAID || order.getPaymentMethod() == PaymentMethod.COD) {
             return;
         }
         if (terminal && order.getStatus() == OrderStatus.PENDING) {
@@ -358,8 +358,107 @@ public class OrderService {
                     .changedByType("SYSTEM")
                     .build());
             orderRepository.save(order);
+        } else if (order.getStatus() == OrderStatus.PENDING) {
+            order.getStatusHistory().add(OrderStatusHistory.builder()
+                    .order(order)
+                    .fromStatus(OrderStatus.PENDING)
+                    .toStatus(OrderStatus.PENDING)
+                    .note("Payment attempt failed: " + reason + " (order reservation kept active for retry)")
+                    .changedByType("SYSTEM")
+                    .build());
+            orderRepository.save(order);
         }
         notificationService.notifyPaymentFailed(order, reason);
+    }
+
+    @Transactional
+    public OrderDetailDto recordPaymentAttemptIncomplete(Order order, String reason, boolean modalDismissed, Long userId) {
+        if (order.getPaymentStatus() == PaymentStatus.PAID
+                || order.getPaymentMethod() == PaymentMethod.COD
+                || order.getStatus() != OrderStatus.PENDING) {
+            return OrderDetailDto.from(order);
+        }
+        Instant now = Instant.now();
+        if (order.getPaymentExpiresAt() == null || !order.getPaymentExpiresAt().isBefore(now)) {
+            int reservationMinutes = storeConfigService.getInt("checkout.reservation_minutes", 15);
+            order.setPaymentExpiresAt(now.plus(Duration.ofMinutes(Math.max(5, reservationMinutes))));
+        }
+        String notePrefix = modalDismissed ? "Payment modal dismissed: " : "Payment attempt declined: ";
+        order.getStatusHistory().add(OrderStatusHistory.builder()
+                .order(order)
+                .fromStatus(OrderStatus.PENDING)
+                .toStatus(OrderStatus.PENDING)
+                .note(notePrefix + reason + " (pending order kept active for retry or COD fallback)")
+                .changedByType("CUSTOMER")
+                .changedByUserId(userId)
+                .build());
+        order = orderRepository.save(order);
+        if (!modalDismissed) {
+            notificationService.notifyPaymentFailed(order, reason);
+        }
+        return OrderDetailDto.from(order);
+    }
+
+    @CacheEvict(value = {"productDetails", "homeContent"}, allEntries = true)
+    @Transactional
+    public OrderDetailDto switchPendingOrderToCod(Long userId, String idOrNumber) {
+        Order order = findCustomerOrderEntity(userId, idOrNumber);
+        if (order.getPaymentMethod() == PaymentMethod.COD
+                && (order.getStatus() == OrderStatus.CONFIRMED || order.getPaymentStatus() == PaymentStatus.PENDING_COD)) {
+            return OrderDetailDto.from(order);
+        }
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            throw BusinessException.conflict("ORDER_ALREADY_PAID", "This order has already been paid online");
+        }
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw BusinessException.badRequest("ORDER_NOT_ELIGIBLE_FOR_COD",
+                    "Order is in status " + order.getStatus() + " and cannot be switched to Cash on Delivery");
+        }
+        if (order.getPaymentExpiresAt() != null && order.getPaymentExpiresAt().isBefore(Instant.now())) {
+            handlePaymentFailedOrExpired(order, "Payment reservation window expired", true);
+            throw BusinessException.badRequest("PAYMENT_WINDOW_EXPIRED",
+                    "Your reservation window expired. Please place a new order.");
+        }
+        boolean codEnabled = storeConfigService.getBoolean("cod_enabled", true);
+        if (!codEnabled) {
+            throw BusinessException.badRequest("COD_DISABLED",
+                    "Cash on Delivery is currently disabled. Please retry online payment.");
+        }
+        BigDecimal codMax = storeConfigService.getMaxCodAmount();
+        if (order.getGrandTotal().compareTo(codMax) > 0) {
+            throw BusinessException.badRequest("COD_LIMIT_EXCEEDED",
+                    "Cash on Delivery is available up to ₹" + codMax.toPlainString()
+                            + ". Please retry online payment or contact TimeCraft Concierge support.");
+        }
+
+        inventoryService.commitReservationsForOrder(order);
+        couponService.markRedeemedForOrder(order.getId());
+        for (OrderItem item : order.getItems()) {
+            if (item.getProduct() != null) {
+                Product p = item.getProduct();
+                p.setSoldCount(p.getSoldCount() + item.getQuantity());
+                productRepository.save(p);
+            }
+        }
+
+        OrderStatus prev = order.getStatus();
+        order.setPaymentMethod(PaymentMethod.COD);
+        order.setPaymentStatus(PaymentStatus.PENDING_COD);
+        order.setStatus(OrderStatus.CONFIRMED);
+        order.setPaymentExpiresAt(null);
+        order.setConfirmedAt(Instant.now());
+        order.getStatusHistory().add(OrderStatusHistory.builder()
+                .order(order)
+                .fromStatus(prev)
+                .toStatus(OrderStatus.CONFIRMED)
+                .note("Switched to Cash on Delivery after incomplete online payment (payment pending on delivery)")
+                .changedByType("CUSTOMER")
+                .changedByUserId(userId)
+                .build());
+
+        order = orderRepository.save(order);
+        notificationService.notifyOrderConfirmed(order);
+        return OrderDetailDto.from(order);
     }
 
     @CacheEvict(value = {"productDetails", "homeContent"}, allEntries = true)
@@ -389,8 +488,10 @@ public class OrderService {
             throw BusinessException.badRequest("INVALID_ORDER_STATE_TRANSITION",
                     "Cannot transition order from " + order.getStatus() + " to " + nextStatus);
         }
+        boolean codPayableOnDelivery = order.getPaymentMethod() == PaymentMethod.COD
+                && order.getPaymentStatus() == PaymentStatus.PENDING_COD;
         if ((nextStatus == OrderStatus.PROCESSING || nextStatus == OrderStatus.PACKED || nextStatus == OrderStatus.SHIPPED)
-                && order.getPaymentStatus() != PaymentStatus.PAID) {
+                && order.getPaymentStatus() != PaymentStatus.PAID && !codPayableOnDelivery) {
             throw BusinessException.badRequest("ORDER_UNPAID",
                     "Order cannot move to " + nextStatus + " before payment is verified");
         }

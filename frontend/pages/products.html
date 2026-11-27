@@ -3,43 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Watch Catalog · TimeCraft</title>
+    <title>Timepiece Collection · TimeCraft</title>
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/styles.css" rel="stylesheet">
 </head>
 <body>
 <div id="tcHeader"></div>
 <main class="container py-5">
-    <div class="d-flex flex-wrap justify-content-between align-items-end border-bottom pb-3 mb-4">
+    <div class="tc-section-header">
         <div>
-            <div class="tc-eyebrow">Curated Watch Listing</div>
-            <h1 class="display-6 tc-serif mb-1" id="tcCatalogTitle">Timepiece Collection</h1>
-            <p class="text-muted small mb-0" id="tcCatalogSubtitle">Refine by movement, diameter, water resistance and maison.</p>
+            <div class="tc-eyebrow mb-1">Curated Horological Listing</div>
+            <h1 class="tc-section-heading mb-1" id="tcCatalogTitle">Timepiece Collection</h1>
+            <p class="text-muted small mb-0" id="tcCatalogSubtitle">Refine by calibre, case diameter, water resistance and authorised maison.</p>
         </div>
-        <div class="d-flex align-items-center gap-3">
-            <span class="small text-muted tc-num" id="tcResultCount">0 timepieces</span>
-            <select id="filterSort" class="form-select form-select-sm" style="width:190px;">
-                <option value="featured">Sort: Featured</option>
-                <option value="newest">Sort: Newest</option>
-                <option value="popularity">Sort: Popularity</option>
-                <option value="price_asc">Price: Low to High</option>
-                <option value="price_desc">Price: High to Low</option>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+            <span class="small text-muted tc-num" id="tcResultCount">0 references</span>
+            <select id="filterSort" class="form-select form-select-sm" style="width:200px;" aria-label="Sort references">
+                <option value="featured">Sort: Curated Featured</option>
+                <option value="newest">Sort: Newest Releases</option>
+                <option value="price_desc">Valuation: High to Low</option>
+                <option value="price_asc">Valuation: Low to High</option>
+                <option value="popularity">Collector Popularity</option>
                 <option value="rating">Highest Rated</option>
-                <option value="discount">Highest Discount</option>
             </select>
         </div>
     </div>
     <div class="row g-4">
         <div class="col-lg-3">
             <form id="tcFilterForm" class="tc-panel vstack gap-3">
-                <input type="text" id="filterQuery" class="form-control form-control-sm" placeholder="Search watches...">
+                <input type="text" id="filterQuery" class="form-control form-control-sm" placeholder="Reference or keyword…">
                 <select id="filterBrand" class="form-select form-select-sm"><option value="">All Maisons</option></select>
                 <select id="filterCategory" class="form-select form-select-sm"><option value="">All Categories</option></select>
                 <select id="filterMovement" class="form-select form-select-sm"><option value="">All Movements</option></select>
                 <select id="filterStrap" class="form-select form-select-sm"><option value="">All Straps</option></select>
                 <select id="filterDial" class="form-select form-select-sm"><option value="">All Dial Colors</option></select>
-                <label class="small"><input type="checkbox" id="filterInStock"> In Stock Only</label>
-                <button type="submit" class="btn-tc-primary">Apply Filters</button>
+                <label class="small d-flex align-items-center gap-2" style="cursor:pointer;">
+                    <input type="checkbox" id="filterInStock"> Immediate Vault Availability
+                </label>
+                <button type="submit" class="btn-tc-primary">Apply Refinement</button>
                 <button type="button" id="tcResetFilters" class="btn-tc-secondary">Reset</button>
             </form>
         </div>

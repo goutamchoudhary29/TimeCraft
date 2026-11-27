@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head('Delivery & PIN Code Rules')}"></head>
+<body>
+<div class="tc-shell">
+    <aside th:replace="~{admin/fragments :: sidebar('delivery')}"></aside>
+    <div class="tc-main">
+        <header th:replace="~{admin/fragments :: topbar('Dynamic Delivery & PIN Code Management')}"></header>
+        <main class="tc-content vstack gap-4">
+            <div th:replace="~{admin/fragments :: alerts}"></div>
+
+            <!-- 1. Global Processing, Transit Durations & Weekend Cutoff -->
+            <section class="tc-card">
+                <h2 class="h4 serif mb-1">Global Delivery Windows &amp; Cutoff Rules</h2>
+                <p class="text-muted small mb-3">Configure processing times, zone transit windows (business days), weekend exclusions, special-order durations, and default insured courier.</p>
+                <form th:action="@{/admin/delivery/global}" method="post" class="row g-3">
+                    <div class="col-md-4" th:each="s : ${deliverySettings}">
+                        <label class="form-label small fw-semibold mb-1" th:text="${s.settingKey}">delivery.key</label>
+                        <input type="text" th:name="${s.settingKey}" th:value="${s.settingValue}" class="form-control form-control-sm num">
+                        <div class="form-text" style="font-size:0.75rem;" th:text="${s.description}">Desc</div>
+                    </div>
+                    <div class="col-12 pt-1">
+                        <button type="submit" class="btn-tc">Save Global Delivery Rules</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- 2. Dispatch Warehouses & Vault Locations -->
+            <section class="tc-card">
+                <h2 class="h4 serif mb-1">Dispatch Warehouses &amp; Vault Hubs</h2>
+                <p class="text-muted small mb-3">Products assigned to different warehouses automatically compute independent delivery timelines and multi-parcel bag notices.</p>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Code</th><th>Vault Name</th><th>City / State</th><th>PIN</th><th>Local Prefixes</th><th>State Prefixes</th><th>Default</th><th>Status</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="w : ${warehouses}">
+                            <td class="num fw-semibold" th:text="${w.code}">BLR-VAULT</td>
+                            <td th:text="${w.name}">Bengaluru Vault</td>
+                            <td th:text="${w.city + ', ' + w.state}">Bengaluru</td>
+                            <td class="num" th:text="${w.pinCode}">560001</td>
+                            <td class="num small" th:text="${w.pinPrefixLocal}">560,561</td>
+                            <td class="num small" th:text="${w.pinPrefixState}">56,57</td>
+                            <td><span class="badge-tc" th:text="${w.defaultWarehouse ? 'DEFAULT' : 'SECONDARY'}">DEFAULT</span></td>
+                            <td><span class="badge-tc" th:text="${w.active ? 'ACTIVE' : 'INACTIVE'}">ACTIVE</span></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <form th:action="@{/admin/delivery/warehouses}" method="post" class="row g-2 align-items-end border-top pt-3">
+                    <div class="col-md-2"><label class="form-label small mb-1">Code</label><input type="text" name="code" class="form-control form-control-sm" required placeholder="DEL-VAULT"></div>
+                    <div class="col-md-3"><label class="form-label small mb-1">Warehouse Name</label><input type="text" name="name" class="form-control form-control-sm" required placeholder="Delhi North Vault"></div>
+                    <div class="col-md-2"><label class="form-label small mb-1">City</label><input type="text" name="city" class="form-control form-control-sm" required placeholder="New Delhi"></div>
+                    <div class="col-md-2"><label class="form-label small mb-1">State</label><input type="text" name="state" class="form-control form-control-sm" required placeholder="Delhi"></div>
+                    <div class="col-md-1"><label class="form-label small mb-1">PIN</label><input type="text" name="pinCode" class="form-control form-control-sm num" required placeholder="110001"></div>
+                    <div class="col-md-2"><label class="form-label small mb-1">Local Prefixes</label><input type="text" name="pinPrefixLocal" class="form-control form-control-sm num" placeholder="110,122"></div>
+                    <div class="col-md-3"><label class="form-label small mb-1">State Prefixes</label><input type="text" name="pinPrefixState" class="form-control form-control-sm num" placeholder="11,12"></div>
+                    <div class="col-md-2"><label class="small d-flex align-items-center gap-1"><input type="checkbox" name="defaultWarehouse" value="true"> Default Hub</label></div>
+                    <div class="col-md-2"><label class="small d-flex align-items-center gap-1"><input type="checkbox" name="active" value="true" checked> Active</label></div>
+                    <div class="col-md-3"><button type="submit" class="btn-tc w-100">Add / Update Warehouse</button></div>
+                </form>
+            </section>
+
+            <!-- 3. Serviceable / Remote PIN Rules & Holiday Exclusions -->
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <section class="tc-card h-100">
+                        <h2 class="h4 serif mb-1">Serviceable &amp; Remote PIN Code Rules</h2>
+                        <p class="text-muted small mb-3">Exact 6-digit PINs (e.g. <code>560001</code>) or prefix wildcards (e.g. <code>79*</code>, <code>744*</code>).</p>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                <tr><th>PIN Pattern</th><th>Zone</th><th>Courier</th><th>Days</th><th>Serviceable</th><th></th></tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="r : ${pinRules}">
+                                    <td class="num fw-semibold" th:text="${r.pinPattern}">560001</td>
+                                    <td><span class="badge-tc" th:text="${r.zoneType}">LOCAL</span></td>
+                                    <td class="small" th:text="${r.courierName ?: 'Default'}">Courier</td>
+                                    <td class="num small" th:text="${r.minDaysOverride != null ? (r.minDaysOverride + '–' + r.maxDaysOverride + 'd') : 'Zone default'}">1–3d</td>
+                                    <td class="small" th:text="${r.serviceable ? 'Yes' : 'No'}">Yes</td>
+                                    <td class="text-end">
+                                        <form th:action="@{'/admin/delivery/pin-rules/' + ${r.id} + '/delete'}" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2">Remove</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <form th:action="@{/admin/delivery/pin-rules}" method="post" class="row g-2 align-items-end border-top pt-3">
+                            <div class="col-md-3"><label class="form-label small mb-1">PIN / Prefix</label><input type="text" name="pinPattern" class="form-control form-control-sm num" required placeholder="400* or 560001"></div>
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1">Zone</label>
+                                <select name="zoneType" class="form-select form-select-sm">
+                                    <option th:each="z : ${zoneTypes}" th:value="${z}" th:text="${z}"></option>
+                                </select>
+                            </div>
+                            <div class="col-md-3"><label class="form-label small mb-1">Courier</label><input type="text" name="courierName" class="form-control form-control-sm" placeholder="BlueDart Vault"></div>
+                            <div class="col-md-3"><label class="small d-flex align-items-center gap-1"><input type="checkbox" name="serviceable" value="true" checked> Serviceable</label></div>
+                            <div class="col-md-2"><label class="form-label small mb-1">Min Days</label><input type="number" name="minDaysOverride" class="form-control form-control-sm num" min="1"></div>
+                            <div class="col-md-2"><label class="form-label small mb-1">Max Days</label><input type="number" name="maxDaysOverride" class="form-control form-control-sm num" min="1"></div>
+                            <div class="col-md-5"><label class="form-label small mb-1">Notes</label><input type="text" name="notes" class="form-control form-control-sm" placeholder="Optional note"></div>
+                            <div class="col-md-3"><button type="submit" class="btn-tc w-100">Save Rule</button></div>
+                        </form>
+                    </section>
+                </div>
+
+                <div class="col-lg-5">
+                    <section class="tc-card h-100">
+                        <h2 class="h4 serif mb-1">Public Holiday Exclusions</h2>
+                        <p class="text-muted small mb-3">Excluded automatically when calculating dispatch and delivery business days.</p>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead><tr><th>Date</th><th>Holiday</th><th></th></tr></thead>
+                                <tbody>
+                                <tr th:each="h : ${holidays}">
+                                    <td class="num fw-semibold" th:text="${h.holidayDate}">2026-10-02</td>
+                                    <td class="small" th:text="${h.name}">Gandhi Jayanti</td>
+                                    <td class="text-end">
+                                        <form th:action="@{'/admin/delivery/holidays/' + ${h.id} + '/delete'}" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2">Remove</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <form th:action="@{/admin/delivery/holidays}" method="post" class="row g-2 align-items-end border-top pt-3">
+                            <div class="col-md-5"><label class="form-label small mb-1">Date</label><input type="date" name="holidayDate" class="form-control form-control-sm num" required></div>
+                            <div class="col-md-7"><label class="form-label small mb-1">Holiday Name</label><input type="text" name="name" class="form-control form-control-sm" required placeholder="Diwali Vault Holiday"></div>
+                            <div class="col-12"><button type="submit" class="btn-tc w-100">Add Holiday Exclusion</button></div>
+                        </form>
+                    </section>
+                </div>
+            </div>
+
+            <!-- 4. Product-Specific Delivery Estimates, Warehouses & Special Orders -->
+            <section class="tc-card">
+                <h2 class="h4 serif mb-1">Product-Specific Delivery &amp; Special-Order Configuration</h2>
+                <p class="text-muted small mb-3">Assign individual watches to specific vaults, mark Pre-Order or Made-to-Order status, or override processing and transit business days.</p>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Watch / SKU</th>
+                            <th>Warehouse</th>
+                            <th>Fulfillment Type</th>
+                            <th>Proc. Days (Min/Max)</th>
+                            <th>Ship Override (Min/Max)</th>
+                            <th>Pre-Order Date</th>
+                            <th>Special Note</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="pc : ${productConfigs}">
+                            <form th:action="@{'/admin/delivery/products/' + ${pc.productId}}" method="post">
+                                <td>
+                                    <div class="fw-semibold small" th:text="${pc.brandName + ' · ' + pc.productName}">Watch</div>
+                                    <div class="text-muted num" style="font-size:0.75rem;" th:text="${pc.sku}">SKU</div>
+                                </td>
+                                <td>
+                                    <select name="warehouseId" class="form-select form-select-sm" style="min-width:155px;">
+                                        <option th:each="w : ${warehouses}" th:value="${w.id}" th:text="${w.name}" th:selected="${pc.warehouseId == w.id}"></option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="fulfillmentType" class="form-select form-select-sm" style="min-width:130px;">
+                                        <option th:each="ft : ${fulfillmentTypes}" th:value="${ft}" th:text="${ft}" th:selected="${pc.fulfillmentType == ft}"></option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1" style="width:110px;">
+                                        <input type="number" name="processingDaysMin" th:value="${pc.processingDaysMin}" class="form-control form-control-sm num" min="0" placeholder="Min">
+                                        <input type="number" name="processingDaysMax" th:value="${pc.processingDaysMax}" class="form-control form-control-sm num" min="0" placeholder="Max">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1" style="width:110px;">
+                                        <input type="number" name="shippingDaysMinOverride" th:value="${pc.shippingDaysMinOverride}" class="form-control form-control-sm num" min="1" placeholder="Min">
+                                        <input type="number" name="shippingDaysMaxOverride" th:value="${pc.shippingDaysMaxOverride}" class="form-control form-control-sm num" min="1" placeholder="Max">
+                                    </div>
+                                </td>
+                                <td>
+                                    <input type="date" name="preorderReleaseDate" th:value="${pc.preorderReleaseDate}" class="form-control form-control-sm num" style="width:135px;">
+                                </td>
+                                <td>
+                                    <input type="text" name="specialOrderNote" th:value="${pc.specialOrderNote}" class="form-control form-control-sm" style="min-width:150px;" placeholder="Optional note">
+                                </td>
+                                <td>
+                                    <button type="submit" class="btn-tc py-1 px-2">Save</button>
+                                </td>
+                            </form>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+</body>
+</html>

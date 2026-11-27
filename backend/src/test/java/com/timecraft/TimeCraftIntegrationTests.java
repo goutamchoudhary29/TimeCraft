@@ -96,7 +96,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * End-to-end integration test suite covering all 22 required test scenarios against
+ * End-to-end integration test suite covering all 22 required test scenarios
+ * against
  * an isolated H2 MySQL-mode database migrated by Flyway.
  */
 @SpringBootTest
@@ -105,844 +106,1597 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class TimeCraftIntegrationTests {
 
-    @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
-    @Autowired
-    private RoleRepository roleRepository;
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private EmailVerificationTokenRepository emailTokenRepository;
-    @Autowired
-    private PasswordResetTokenRepository resetTokenRepository;
-    @Autowired
-    private ProductVariantRepository variantRepository;
-    @Autowired
-    private InventoryRepository inventoryRepository;
-    @Autowired
-    private InventoryService inventoryService;
-    @Autowired
-    private OrderRepository orderRepository;
-    @Autowired
-    private OrderService orderService;
-    @Autowired
-    private PaymentRepository paymentRepository;
-    @Autowired
-    private PaymentWebhookEventRepository webhookEventRepository;
-    @SpyBean
-    private RazorpayPaymentService paymentService;
-    @Autowired
-    private ReturnAndRefundService returnAndRefundService;
-    @Autowired
-    private ReviewService reviewService;
-    @Autowired
-    private RateLimitingFilter rateLimitingFilter;
+        @Autowired
+        private MockMvc mockMvc;
+        @Autowired
+        private ObjectMapper objectMapper;
+        @Autowired
+        private RoleRepository roleRepository;
+        @Autowired
+        private UserRepository userRepository;
+        @Autowired
+        private EmailVerificationTokenRepository emailTokenRepository;
+        @Autowired
+        private PasswordResetTokenRepository resetTokenRepository;
+        @Autowired
+        private ProductVariantRepository variantRepository;
+        @Autowired
+        private InventoryRepository inventoryRepository;
+        @Autowired
+        private InventoryService inventoryService;
+        @Autowired
+        private OrderRepository orderRepository;
+        @Autowired
+        private OrderService orderService;
+        @Autowired
+        private PaymentRepository paymentRepository;
+        @Autowired
+        private PaymentWebhookEventRepository webhookEventRepository;
+        @SpyBean
+        private RazorpayPaymentService paymentService;
+        @Autowired
+        private ReturnAndRefundService returnAndRefundService;
+        @Autowired
+        private ReviewService reviewService;
+        @Autowired
+        private RateLimitingFilter rateLimitingFilter;
 
-    @BeforeEach
-    void clearRateLimiter() {
-        rateLimitingFilter.reset();
-    }
+        @BeforeEach
+        void clearRateLimiter() {
+                rateLimitingFilter.reset();
+        }
 
-    @Test
-    @org.junit.jupiter.api.Order(1)
-    @DisplayName("1-3. Registration, Login, JWT Validation, Refresh Rotation, Email Verification & Password Reset")
-    void registrationLoginJwtRefreshAndTokenWorkflows() throws Exception {
-        // Verify ONLY CUSTOMER and ADMIN roles exist in the database
-        assertThat(roleRepository.findAll())
-                .extracting(r -> r.getName().name())
-                .containsExactlyInAnyOrder("CUSTOMER", "ADMIN");
+        @Test
+        @org.junit.jupiter.api.Order(1)
+        @DisplayName("1-3. Registration, Login, JWT Validation, Refresh Rotation, Email Verification & Password Reset")
+        void registrationLoginJwtRefreshAndTokenWorkflows() throws Exception {
+                // Verify ONLY CUSTOMER and ADMIN roles exist in the database
+                assertThat(roleRepository.findAll())
+                                .extracting(r -> r.getName().name())
+                                .containsExactlyInAnyOrder("CUSTOMER", "ADMIN");
 
-        String email = "collector1@timecraft.test";
-        RegisterRequest reg = new RegisterRequest("Aarav", "Mehta", email, "WatchPass123", "+91 9876543210");
+                String email = "collector1@timecraft.test";
+                RegisterRequest reg = new RegisterRequest("Aarav", "Mehta", email, "WatchPass123", "+91 9876543210");
 
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(reg)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.email").value(email))
-                .andExpect(jsonPath("$.otpSent").value(true));
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(reg)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.email").value(email))
+                                .andExpect(jsonPath("$.otpSent").value(true));
 
-        // Verify 6-digit OTP flow (wrong OTP fails, correct OTP verifies email & issues JWT)
-        User registeredUser = userRepository.findByEmailIgnoreCase(email).orElseThrow();
-        assertThat(registeredUser.isEmailVerified()).isFalse();
-        EmailVerificationToken activeOtp = emailTokenRepository
-                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(registeredUser.getId()).orElseThrow();
-        activeOtp.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "123456"));
-        emailTokenRepository.save(activeOtp);
+                // Verify 6-digit OTP flow (wrong OTP fails, correct OTP verifies email & issues
+                // JWT)
+                User registeredUser = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+                assertThat(registeredUser.isEmailVerified()).isFalse();
+                EmailVerificationToken activeOtp = emailTokenRepository
+                                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(registeredUser.getId())
+                                .orElseThrow();
+                activeOtp.setTokenHash(
+                                com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "123456"));
+                emailTokenRepository.save(activeOtp);
 
-        mockMvc.perform(post("/api/v1/auth/verify-otp")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"otp\":\"000000\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_OTP"));
+                mockMvc.perform(post("/api/v1/auth/verify-otp")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email + "\",\"otp\":\"000000\"}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_OTP"));
 
-        mockMvc.perform(post("/api/v1/auth/verify-otp")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"otp\":\"123456\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
-                .andExpect(jsonPath("$.user.emailVerified").value(true))
-                .andExpect(jsonPath("$.user.roles[0]").value("CUSTOMER"));
+                mockMvc.perform(post("/api/v1/auth/verify-otp")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email + "\",\"otp\":\"123456\"}"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                                .andExpect(jsonPath("$.user.emailVerified").value(true))
+                                .andExpect(jsonPath("$.user.roles[0]").value("CUSTOMER"));
 
-        // Duplicate registration rejected with 409
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(reg)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_EXISTS"));
+                // Duplicate registration rejected with 409
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(reg)))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_EXISTS"));
 
-        // Login with valid credentials
-        LoginRequest login = new LoginRequest(email, "WatchPass123");
-        MvcResult loginRes = mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(login)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andReturn();
+                // Login with valid credentials
+                LoginRequest login = new LoginRequest(email, "WatchPass123");
+                MvcResult loginRes = mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(login)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                                .andReturn();
 
-        JsonNode loginJson = objectMapper.readTree(loginRes.getResponse().getContentAsString());
-        String accessToken = loginJson.get("accessToken").asText();
-        String refreshToken = loginJson.get("refreshToken").asText();
+                JsonNode loginJson = objectMapper.readTree(loginRes.getResponse().getContentAsString());
+                String accessToken = loginJson.get("accessToken").asText();
+                String refreshToken = loginJson.get("refreshToken").asText();
 
-        // JWT validates on /api/v1/auth/me
-        mockMvc.perform(get("/api/v1/auth/me")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value(email));
+                // JWT validates on /api/v1/auth/me
+                mockMvc.perform(get("/api/v1/auth/me")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.email").value(email));
 
-        // Tampered JWT rejected with 401
-        mockMvc.perform(get("/api/v1/auth/me")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken + "tampered"))
-                .andExpect(status().isUnauthorized());
+                // Tampered JWT rejected with 401
+                mockMvc.perform(get("/api/v1/auth/me")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken + "tampered"))
+                                .andExpect(status().isUnauthorized());
 
-        // Rotate refresh token
-        MvcResult refreshRes = mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
-                .andReturn();
-        String rotatedRefresh = objectMapper.readTree(refreshRes.getResponse().getContentAsString())
-                .get("refreshToken").asText();
+                // Rotate refresh token
+                MvcResult refreshRes = mockMvc.perform(post("/api/v1/auth/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                                .andReturn();
+                String rotatedRefresh = objectMapper.readTree(refreshRes.getResponse().getContentAsString())
+                                .get("refreshToken").asText();
 
-        // Reusing old refresh token triggers family revocation and returns 401
-        mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_REUSED"));
+                // Reusing old refresh token triggers family revocation and returns 401
+                mockMvc.perform(post("/api/v1/auth/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.code").value("REFRESH_TOKEN_REUSED"));
 
-        // Even the rotated token in the same family is now revoked
-        mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"refreshToken\":\"" + rotatedRefresh + "\"}"))
-                .andExpect(status().isUnauthorized());
+                // Even the rotated token in the same family is now revoked
+                mockMvc.perform(post("/api/v1/auth/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"refreshToken\":\"" + rotatedRefresh + "\"}"))
+                                .andExpect(status().isUnauthorized());
 
-        // Email verification token single-use
-        User user = userRepository.findByEmailIgnoreCase(email).orElseThrow();
-        String rawVerify = TokenUtils.generateToken();
-        emailTokenRepository.save(EmailVerificationToken.builder()
-                .user(user)
-                .tokenHash(TokenUtils.sha256(rawVerify))
-                .expiresAt(Instant.now().plus(Duration.ofHours(2)))
-                .build());
-        mockMvc.perform(post("/api/v1/auth/verify-email")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"" + rawVerify + "\"}"))
-                .andExpect(status().isOk());
-        mockMvc.perform(post("/api/v1/auth/verify-email")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"" + rawVerify + "\"}"))
-                .andExpect(status().isBadRequest());
+                // Email verification token single-use
+                User user = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+                String rawVerify = TokenUtils.generateToken();
+                emailTokenRepository.save(EmailVerificationToken.builder()
+                                .user(user)
+                                .tokenHash(TokenUtils.sha256(rawVerify))
+                                .expiresAt(Instant.now().plus(Duration.ofHours(2)))
+                                .build());
+                mockMvc.perform(post("/api/v1/auth/verify-email")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"token\":\"" + rawVerify + "\"}"))
+                                .andExpect(status().isOk());
+                mockMvc.perform(post("/api/v1/auth/verify-email")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"token\":\"" + rawVerify + "\"}"))
+                                .andExpect(status().isBadRequest());
 
-        // Password reset token single-use
-        String rawReset = TokenUtils.generateToken();
-        resetTokenRepository.save(PasswordResetToken.builder()
-                .user(user)
-                .tokenHash(TokenUtils.sha256(rawReset))
-                .expiresAt(Instant.now().plus(Duration.ofMinutes(15)))
-                .build());
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"" + rawReset + "\",\"newPassword\":\"NewWatchPass456\"}"))
-                .andExpect(status().isOk());
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"" + rawReset + "\",\"newPassword\":\"NewWatchPass456\"}"))
-                .andExpect(status().isBadRequest());
+                // Password reset token single-use
+                String rawReset = TokenUtils.generateToken();
+                resetTokenRepository.save(PasswordResetToken.builder()
+                                .user(user)
+                                .tokenHash(TokenUtils.sha256(rawReset))
+                                .expiresAt(Instant.now().plus(Duration.ofMinutes(15)))
+                                .build());
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"token\":\"" + rawReset + "\",\"newPassword\":\"NewWatchPass456\"}"))
+                                .andExpect(status().isOk());
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"token\":\"" + rawReset + "\",\"newPassword\":\"NewWatchPass456\"}"))
+                                .andExpect(status().isBadRequest());
 
-        // Forgot password for UNREGISTERED email: neutral message, NO reset token created, NO OTP leaked
-        long tokensBefore = resetTokenRepository.count();
-        mockMvc.perform(post("/api/v1/auth/forgot-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"nobody.unregistered@timecraft.test\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("If an account exists with this email, a reset OTP has been sent."))
-                .andExpect(jsonPath("$.devOtp").doesNotExist());
-        assertThat(resetTokenRepository.count()).isEqualTo(tokensBefore);
+                // Forgot password for UNREGISTERED email: neutral message, NO reset token
+                // created, NO OTP leaked
+                long tokensBefore = resetTokenRepository.count();
+                mockMvc.perform(post("/api/v1/auth/forgot-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"nobody.unregistered@timecraft.test\"}"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value(
+                                                "If an account exists with this email, a reset OTP has been sent."))
+                                .andExpect(jsonPath("$.devOtp").doesNotExist());
+                assertThat(resetTokenRepository.count()).isEqualTo(tokensBefore);
 
-        // Reset password for UNREGISTERED email is strictly rejected
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"nobody.unregistered@timecraft.test\",\"otp\":\"123456\",\"newPassword\":\"NewWatchPass789\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_RESET_OTP"));
+                // Reset password for UNREGISTERED email is strictly rejected
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"nobody.unregistered@timecraft.test\",\"otp\":\"123456\",\"newPassword\":\"NewWatchPass789\"}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_RESET_OTP"));
 
-        // Forgot + Reset password 6-digit OTP flow for registered customer
-        mockMvc.perform(post("/api/v1/auth/forgot-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("If an account exists with this email, a reset OTP has been sent."));
-        PasswordResetToken activeOtpToken = resetTokenRepository
-                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(user.getId())
-                .orElseThrow();
-        activeOtpToken.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "654321"));
-        resetTokenRepository.save(activeOtpToken);
+                // Forgot + Reset password 6-digit OTP flow for registered customer
+                mockMvc.perform(post("/api/v1/auth/forgot-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email + "\"}"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value(
+                                                "If an account exists with this email, a reset OTP has been sent."));
+                PasswordResetToken activeOtpToken = resetTokenRepository
+                                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(user.getId())
+                                .orElseThrow();
+                activeOtpToken.setTokenHash(
+                                com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "654321"));
+                resetTokenRepository.save(activeOtpToken);
 
-        // Wrong OTP is rejected
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"otp\":\"000000\",\"newPassword\":\"NewWatchPass789\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_RESET_OTP"));
+                // Wrong OTP is rejected
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email
+                                                + "\",\"otp\":\"000000\",\"newPassword\":\"NewWatchPass789\"}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_RESET_OTP"));
 
-        // Valid 6-digit OTP succeeds once and cannot be reused
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"otp\":\"654321\",\"newPassword\":\"NewWatchPass789\"}"))
-                .andExpect(status().isOk());
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"otp\":\"654321\",\"newPassword\":\"NewWatchPass789\"}"))
-                .andExpect(status().isBadRequest());
-    }
+                // Valid 6-digit OTP succeeds once and cannot be reused
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email
+                                                + "\",\"otp\":\"654321\",\"newPassword\":\"NewWatchPass789\"}"))
+                                .andExpect(status().isOk());
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email
+                                                + "\",\"otp\":\"654321\",\"newPassword\":\"NewWatchPass789\"}"))
+                                .andExpect(status().isBadRequest());
+        }
 
-    @Test
-    @org.junit.jupiter.api.Order(2)
-    @DisplayName("4-5. Admin & Customer Access Restrictions + CSRF Enforcement")
-    void adminAndCustomerAccessBoundaries() throws Exception {
-        String customerToken = registerAndGetAccessToken("boundary@timecraft.test");
+        @Test
+        @org.junit.jupiter.api.Order(2)
+        @DisplayName("4-5. Admin & Customer Access Restrictions + CSRF Enforcement")
+        void adminAndCustomerAccessBoundaries() throws Exception {
+                String customerToken = registerAndGetAccessToken("boundary@timecraft.test");
 
-        // Customer Bearer JWT must NEVER grant access to /api/v1/admin/** or /admin/**
-        mockMvc.perform(get("/api/v1/admin/dashboard")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + customerToken))
-                .andExpect(status().isUnauthorized());
+                // Customer Bearer JWT must NEVER grant access to /api/v1/admin/** or /admin/**
+                mockMvc.perform(get("/api/v1/admin/dashboard")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + customerToken))
+                                .andExpect(status().isUnauthorized());
 
-        mockMvc.perform(get("/admin/dashboard")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + customerToken))
-                .andExpect(status().is3xxRedirection());
+                mockMvc.perform(get("/admin/dashboard")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + customerToken))
+                                .andExpect(status().is3xxRedirection());
 
-        // Admin session without CSRF on state-changing POST is rejected with 403
-        mockMvc.perform(post("/api/v1/admin/brands")
-                        .with(user("admin@timecraft.test").roles("ADMIN"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Test Maison\",\"active\":true,\"featured\":false}"))
-                .andExpect(status().isForbidden());
+                // Admin session without CSRF on state-changing POST is rejected with 403
+                mockMvc.perform(post("/api/v1/admin/brands")
+                                .with(user("admin@timecraft.test").roles("ADMIN"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Test Maison\",\"active\":true,\"featured\":false}"))
+                                .andExpect(status().isForbidden());
 
-        // Admin session WITH CSRF succeeds
-        mockMvc.perform(get("/api/v1/admin/dashboard")
-                        .with(user("admin@timecraft.test").roles("ADMIN")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalProducts").isNumber());
+                // Admin session WITH CSRF succeeds
+                mockMvc.perform(get("/api/v1/admin/dashboard")
+                                .with(user("admin@timecraft.test").roles("ADMIN")))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalProducts").isNumber());
 
-        // Customer resource ownership check: Customer B cannot read Customer A's address
-        String tokenA = registerAndGetAccessToken("ownerA@timecraft.test");
-        String tokenB = registerAndGetAccessToken("ownerB@timecraft.test");
-        Long addrIdA = createIndianAddress(tokenA);
+                // Customer resource ownership check: Customer B cannot read Customer A's
+                // address
+                String tokenA = registerAndGetAccessToken("ownerA@timecraft.test");
+                String tokenB = registerAndGetAccessToken("ownerB@timecraft.test");
+                Long addrIdA = createIndianAddress(tokenA);
 
-        mockMvc.perform(delete("/api/v1/addresses/" + addrIdA)
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB))
-                .andExpect(status().isNotFound());
-    }
+                mockMvc.perform(delete("/api/v1/addresses/" + addrIdA)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB))
+                                .andExpect(status().isNotFound());
+        }
 
-    @Test
-    @org.junit.jupiter.api.Order(3)
-    @DisplayName("6-8. Product CRUD, Search, Multi-Facet Filters, Sorting & Comparison")
-    void productCrudSearchFilterSortAndCompare() throws Exception {
-        // Admin creates a new watch
-        ProductUpsertRequest createReq = new ProductUpsertRequest(
-                1L, 1L, "Chronometer Royal 39", null, "CR-39", "AUR-CR39",
-                "Hand-finished chronometer", "Full description",
-                MovementType.AUTOMATIC, new BigDecimal("39.00"), "18K Gold", 100,
-                "Sapphire", "Alligator Leather", "Champagne", "Gold",
-                WatchGender.MEN, 60, new BigDecimal("520000.00"), new BigDecimal("468000.00"),
-                ProductStatus.ACTIVE, true, true, false,
-                "https://images.unsplash.com/photo-1587836374828-4dbafa94cf0e?w=1200", 8, List.of()
-        );
+        @Test
+        @org.junit.jupiter.api.Order(3)
+        @DisplayName("6-8. Product CRUD, Search, Multi-Facet Filters, Sorting & Comparison")
+        void productCrudSearchFilterSortAndCompare() throws Exception {
+                // Admin creates a new watch
+                ProductUpsertRequest createReq = new ProductUpsertRequest(
+                                1L, 1L, "Chronometer Royal 39", null, "CR-39", "AUR-CR39",
+                                "Hand-finished chronometer", "Full description",
+                                MovementType.AUTOMATIC, new BigDecimal("39.00"), "18K Gold", 100,
+                                "Sapphire", "Alligator Leather", "Champagne", "Gold",
+                                WatchGender.MEN, 60, new BigDecimal("520000.00"), new BigDecimal("468000.00"),
+                                ProductStatus.ACTIVE, true, true, false,
+                                "https://images.unsplash.com/photo-1587836374828-4dbafa94cf0e?w=1200", 8, List.of());
 
-        MvcResult createdRes = mockMvc.perform(post("/api/v1/admin/products")
-                        .with(user("admin@timecraft.test").roles("ADMIN"))
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(createReq)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.sku").value("AUR-CR39"))
-                .andExpect(jsonPath("$.discountPercent").value(10.0))
-                .andReturn();
-        Long createdId = objectMapper.readTree(createdRes.getResponse().getContentAsString()).get("id").asLong();
+                MvcResult createdRes = mockMvc.perform(post("/api/v1/admin/products")
+                                .with(user("admin@timecraft.test").roles("ADMIN"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createReq)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.sku").value("AUR-CR39"))
+                                .andExpect(jsonPath("$.discountPercent").value(10.0))
+                                .andReturn();
+                Long createdId = objectMapper.readTree(createdRes.getResponse().getContentAsString()).get("id")
+                                .asLong();
 
-        // Search by keyword
-        mockMvc.perform(get("/api/v1/products/search").param("q", "Chronometer Royal"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.content[0].sku").value("AUR-CR39"));
+                // Search by keyword
+                mockMvc.perform(get("/api/v1/products/search").param("q", "Chronometer Royal"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalElements").value(1))
+                                .andExpect(jsonPath("$.content[0].sku").value("AUR-CR39"));
 
-        // Combined filters: movement=AUTOMATIC, minWaterResistance=200, inStock=true, sort=price_asc
-        mockMvc.perform(get("/api/v1/products")
-                        .param("movement", "AUTOMATIC")
-                        .param("minWaterResistance", "200")
-                        .param("inStock", "true")
-                        .param("sort", "price_asc"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.totalElements").isNumber());
+                // Combined filters: movement=AUTOMATIC, minWaterResistance=200, inStock=true,
+                // sort=price_asc
+                mockMvc.perform(get("/api/v1/products")
+                                .param("movement", "AUTOMATIC")
+                                .param("minWaterResistance", "200")
+                                .param("inStock", "true")
+                                .param("sort", "price_asc"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content").isArray())
+                                .andExpect(jsonPath("$.totalElements").isNumber());
 
-        // Compare up to 4 watches works; comparing 5 returns 400
-        mockMvc.perform(get("/api/v1/products/compare").param("ids", "1,2,3"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(3));
-
-        mockMvc.perform(get("/api/v1/products/compare").param("ids", "1,2,3,4,5"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("COMPARE_LIMIT_EXCEEDED"));
-
-        // Soft delete product
-        mockMvc.perform(delete("/api/v1/admin/products/" + createdId)
-                        .with(user("admin@timecraft.test").roles("ADMIN"))
-                        .with(csrf()))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @org.junit.jupiter.api.Order(4)
-    @DisplayName("9-12. Guest Cart, Cart Merge on Login, Wishlist, Coupon Validation & Checkout Calculations")
-    void cartMergeWishlistCouponsAndCalculations() throws Exception {
-        ProductVariant variant = variantRepository.findAll().stream()
-                .filter(v -> inventoryService.getAvailableForVariant(v.getId()) >= 5)
-                .findFirst().orElseThrow();
-
-        // Guest adds 1 watch to cart and receives X-Guest-Token
-        MvcResult guestAdd = mockMvc.perform(post("/api/v1/cart/items")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new AddCartItemRequest(variant.getId(), 1))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalQuantity").value(1))
-                .andReturn();
-        String guestToken = guestAdd.getResponse().getHeader("X-Guest-Token");
-        assertThat(guestToken).isNotBlank();
-
-        // Guest updates quantity to 2
-        mockMvc.perform(put("/api/v1/cart/items/" + objectMapper.readTree(guestAdd.getResponse().getContentAsString())
-                        .get("items").get(0).get("id").asLong())
-                        .header("X-Guest-Token", guestToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new UpdateCartItemRequest(2))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalQuantity").value(2));
-
-        // Register customer and verify OTP with X-Guest-Token -> guest cart merges automatically
-        String mergeEmail = "merge@timecraft.test";
-        RegisterRequest reg = new RegisterRequest("Nisha", "Kapoor", mergeEmail, "WatchPass123", "+91 9876543211");
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(reg)))
-                .andExpect(status().isCreated());
-        User mergeUser = userRepository.findByEmailIgnoreCase(mergeEmail).orElseThrow();
-        EmailVerificationToken mergeOtp = emailTokenRepository
-                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(mergeUser.getId()).orElseThrow();
-        mergeOtp.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(mergeEmail, "222333"));
-        emailTokenRepository.save(mergeOtp);
-
-        MvcResult regRes = mockMvc.perform(post("/api/v1/auth/verify-otp")
-                        .header("X-Guest-Token", guestToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + mergeEmail + "\",\"otp\":\"222333\"}"))
-                .andExpect(status().isOk())
-                .andReturn();
-        String token = objectMapper.readTree(regRes.getResponse().getContentAsString()).get("accessToken").asText();
-
-        // Customer cart now contains the 2 merged items
-        mockMvc.perform(get("/api/v1/cart")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalQuantity").value(2));
-
-        // Apply valid coupon WELCOME10
-        mockMvc.perform(post("/api/v1/cart/coupon")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new ApplyCouponRequest("WELCOME10"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.appliedCouponCode").value("WELCOME10"))
-                .andExpect(jsonPath("$.totals.discountTotal").value(5000.0));
-
-        // Apply non-existent coupon fails with 400
-        mockMvc.perform(post("/api/v1/cart/coupon")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new ApplyCouponRequest("FAKECODE99"))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_COUPON"));
-
-        // Wishlist: add (idempotent on duplicate) and move to cart
-        ProductVariant anotherVariant = variantRepository.findAll().stream()
-                .filter(v -> !v.getId().equals(variant.getId()) && inventoryService.getAvailableForVariant(v.getId()) >= 3)
-                .findFirst().orElseThrow();
-        MvcResult wishRes = mockMvc.perform(post("/api/v1/wishlist/items")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new AddWishlistItemRequest(anotherVariant.getProduct().getId(), anotherVariant.getId()))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andReturn();
-        Long wishItemId = objectMapper.readTree(wishRes.getResponse().getContentAsString()).get(0).get("id").asLong();
-
-        mockMvc.perform(post("/api/v1/wishlist/items/" + wishItemId + "/move-to-cart")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalQuantity").value(3));
-    }
-
-    @Test
-    @org.junit.jupiter.api.Order(5)
-    @DisplayName("13-20. Stock Reservation, Concurrency Locking, Order Lifecycle, Razorpay Signature & Webhook Idempotency, Returns & Refunds")
-    void inventoryConcurrencyOrderPaymentWebhookReturnAndRefund() throws Exception {
-        String token = registerAndGetAccessToken("buyer@timecraft.test");
-        Long userId = userRepository.findByEmailIgnoreCase("buyer@timecraft.test").orElseThrow().getId();
-        Long addressId = createIndianAddress(token);
-
-        ProductVariant variant = variantRepository.findById(1L).orElseThrow();
-        Inventory invBefore = inventoryRepository.findByVariantId(variant.getId()).orElseThrow();
-        invBefore.setQuantityOnHand(5);
-        invBefore.setQuantityReserved(0);
-        inventoryRepository.save(invBefore);
-
-        // Concurrent stock reservation test: 5 threads try to reserve 2 units each from 5 available -> at most 2 succeed (4 units)
-        Order dummyOrder = createOrderDirectly(userId, addressId, variant, 1, "idemp-seed-" + UUID.randomUUID());
-        // Release the 1 unit from dummyOrder first so exactly 5 are available
-        orderService.cancelByCustomer(userId, dummyOrder.getId(), "Release for concurrency test");
-
-        int threads = 5;
-        CountDownLatch ready = new CountDownLatch(threads);
-        CountDownLatch start = new CountDownLatch(1);
-        CountDownLatch done = new CountDownLatch(threads);
-        AtomicInteger successes = new AtomicInteger();
-        AtomicInteger conflicts = new AtomicInteger();
-        var pool = Executors.newFixedThreadPool(threads);
-        for (int i = 0; i < threads; i++) {
-            pool.submit(() -> {
-                ready.countDown();
-                try {
-                    start.await();
-                    inventoryService.reserveForOrder(dummyOrder, variant, 2, Duration.ofMinutes(10));
-                    successes.incrementAndGet();
-                } catch (Exception ex) {
-                    conflicts.incrementAndGet();
-                } finally {
-                    done.countDown();
+                // Women's collection filter includes curated watches under ₹50,000, while Men's
+                // includes luxury collector pieces (₹100,000 - ₹500,000)
+                MvcResult womenRes = mockMvc.perform(get("/api/v1/products")
+                                .param("gender", "WOMEN")
+                                .param("size", "24"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                JsonNode womenItems = objectMapper.readTree(womenRes.getResponse().getContentAsString()).get("content");
+                assertThat(womenItems.size()).isGreaterThanOrEqualTo(8);
+                long womenUnder50k = 0;
+                for (JsonNode item : womenItems) {
+                        if (new BigDecimal(item.get("sellingPrice").asText())
+                                        .compareTo(new BigDecimal("50000.00")) < 0) {
+                                womenUnder50k++;
+                        }
                 }
-            });
+                assertThat(womenUnder50k).isGreaterThan(womenItems.size() / 2);
+
+                MvcResult menRes = mockMvc.perform(get("/api/v1/products")
+                                .param("gender", "MEN")
+                                .param("minPrice", "100000")
+                                .param("maxPrice", "500000"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                assertThat(objectMapper.readTree(menRes.getResponse().getContentAsString()).get("totalElements")
+                                .asLong())
+                                .isGreaterThanOrEqualTo(4L);
+
+                // Compare up to 4 watches works; comparing 5 returns 400
+                mockMvc.perform(get("/api/v1/products/compare").param("ids", "1,2,3"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.length()").value(3));
+
+                mockMvc.perform(get("/api/v1/products/compare").param("ids", "1,2,3,4,5"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("COMPARE_LIMIT_EXCEEDED"));
+
+                // Soft delete product
+                mockMvc.perform(delete("/api/v1/admin/products/" + createdId)
+                                .with(user("admin@timecraft.test").roles("ADMIN"))
+                                .with(csrf()))
+                                .andExpect(status().isOk());
         }
-        ready.await();
-        start.countDown();
-        done.await();
-        pool.shutdown();
 
-        assertThat(successes.get()).isEqualTo(2);
-        assertThat(conflicts.get()).isEqualTo(3);
-        inventoryService.releaseReservationsForOrder(dummyOrder,
-                com.timecraft.inventory.entity.StockReservationStatus.RELEASED, "Reset after concurrency test");
+        @Test
+        @org.junit.jupiter.api.Order(4)
+        @DisplayName("9-12. Guest Cart, Cart Merge on Login, Wishlist, Coupon Validation & Checkout Calculations")
+        void cartMergeWishlistCouponsAndCalculations() throws Exception {
+                ProductVariant variant = variantRepository.findAll().stream()
+                                .filter(v -> inventoryService.getAvailableForVariant(v.getId()) >= 5)
+                                .findFirst().orElseThrow();
 
-        // Place a real order through /api/v1/orders with idempotency key
-        mockMvc.perform(post("/api/v1/cart/items")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new AddCartItemRequest(variant.getId(), 1))))
-                .andExpect(status().isOk());
+                // Guest adds 1 watch to cart and receives X-Guest-Token
+                MvcResult guestAdd = mockMvc.perform(post("/api/v1/cart/items")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AddCartItemRequest(variant.getId(), 1))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalQuantity").value(1))
+                                .andExpect(jsonPath("$.items[0].modelName").isNotEmpty())
+                                .andExpect(jsonPath("$.items[0].maxOrderQuantity").isNumber())
+                                .andReturn();
+                String guestToken = guestAdd.getResponse().getHeader("X-Guest-Token");
+                assertThat(guestToken).isNotBlank();
 
-        String idempKey = "order-key-" + UUID.randomUUID();
-        PlaceOrderRequest placeReq = new PlaceOrderRequest(addressId, "WELCOME10", "Gift wrap", idempKey);
-        MvcResult orderRes = mockMvc.perform(post("/api/v1/orders")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .header("X-Idempotency-Key", idempKey)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(placeReq)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.paymentStatus").value("PENDING"))
-                .andReturn();
-        JsonNode orderJson = objectMapper.readTree(orderRes.getResponse().getContentAsString());
-        Long orderId = orderJson.get("id").asLong();
-        String orderNumber = orderJson.get("orderNumber").asText();
+                // Guest updates quantity to 2
+                mockMvc.perform(put("/api/v1/cart/items/"
+                                + objectMapper.readTree(guestAdd.getResponse().getContentAsString())
+                                                .get("items").get(0).get("id").asLong())
+                                .header("X-Guest-Token", guestToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new UpdateCartItemRequest(2))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalQuantity").value(2));
 
-        // Duplicate order placement with same idempotency key returns the exact same order
-        mockMvc.perform(post("/api/v1/orders")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .header("X-Idempotency-Key", idempKey)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(placeReq)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(orderId));
+                // Register customer and verify OTP with X-Guest-Token -> guest cart merges
+                // automatically
+                String mergeEmail = "merge@timecraft.test";
+                RegisterRequest reg = new RegisterRequest("Nisha", "Kapoor", mergeEmail, "WatchPass123",
+                                "+91 9876543211");
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(reg)))
+                                .andExpect(status().isCreated());
+                User mergeUser = userRepository.findByEmailIgnoreCase(mergeEmail).orElseThrow();
+                EmailVerificationToken mergeOtp = emailTokenRepository
+                                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(mergeUser.getId()).orElseThrow();
+                mergeOtp.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(mergeEmail,
+                                "222333"));
+                emailTokenRepository.save(mergeOtp);
 
-        // Verify stock is reserved (5 on hand, 1 reserved -> 4 available)
-        assertThat(inventoryService.getAvailableForVariant(variant.getId())).isEqualTo(4);
+                MvcResult regRes = mockMvc.perform(post("/api/v1/auth/verify-otp")
+                                .header("X-Guest-Token", guestToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + mergeEmail + "\",\"otp\":\"222333\"}"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                String token = objectMapper.readTree(regRes.getResponse().getContentAsString()).get("accessToken")
+                                .asText();
 
-        // Create a Razorpay payment record in CREATED state for signature verification test
-        Order orderEntity = orderRepository.findById(orderId).orElseThrow();
-        String rzpOrderId = "order_test_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        Payment payment = paymentRepository.save(Payment.builder()
-                .order(orderEntity)
-                .provider("RAZORPAY")
-                .providerOrderId(rzpOrderId)
-                .amount(orderEntity.getGrandTotal())
-                .currency("INR")
-                .status(PaymentAttemptStatus.CREATED)
-                .build());
+                // Customer cart now contains the 2 merged items
+                mockMvc.perform(get("/api/v1/cart")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalQuantity").value(2));
 
-        // Invalid signature is rejected with 400
-        String rzpPaymentId = "pay_test_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        mockMvc.perform(post("/api/v1/payments/verify")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new VerifyPaymentRequest(orderId, rzpOrderId, rzpPaymentId, "invalid_sig", "UPI"))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_PAYMENT_SIGNATURE"));
+                // Apply valid coupon WELCOME10
+                mockMvc.perform(post("/api/v1/cart/coupon")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new ApplyCouponRequest("WELCOME10"))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.appliedCouponCode").value("WELCOME10"))
+                                .andExpect(jsonPath("$.totals.discountTotal").value(5000.0));
 
-        // Valid HMAC-SHA256 signature confirms the order and commits inventory
-        String validSig = RazorpayPaymentService.hmacSha256Hex(
-                rzpOrderId + "|" + rzpPaymentId, "rzp_test_secret_abc987");
-        mockMvc.perform(post("/api/v1/payments/verify")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new VerifyPaymentRequest(orderId, rzpOrderId, rzpPaymentId, validSig, "UPI"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CONFIRMED"))
-                .andExpect(jsonPath("$.paymentStatus").value("PAID"));
+                // Apply non-existent coupon fails with 400
+                mockMvc.perform(post("/api/v1/cart/coupon")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new ApplyCouponRequest("FAKECODE99"))))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_COUPON"));
 
-        // Inventory is now committed: onHand reduced from 5 to 4, reserved back to 0
-        Inventory invAfterPay = inventoryRepository.findByVariantId(variant.getId()).orElseThrow();
-        assertThat(invAfterPay.getQuantityOnHand()).isEqualTo(4);
-        assertThat(invAfterPay.getQuantityReserved()).isEqualTo(0);
+                // Wishlist: add (idempotent on duplicate) and move to cart
+                ProductVariant anotherVariant = variantRepository.findAll().stream()
+                                .filter(v -> !v.getId().equals(variant.getId())
+                                                && inventoryService.getAvailableForVariant(v.getId()) >= 3)
+                                .findFirst().orElseThrow();
+                MvcResult wishRes = mockMvc.perform(post("/api/v1/wishlist/items")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new AddWishlistItemRequest(anotherVariant.getProduct().getId(),
+                                                                anotherVariant.getId()))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.length()").value(1))
+                                .andReturn();
+                Long wishItemId = objectMapper.readTree(wishRes.getResponse().getContentAsString()).get(0).get("id")
+                                .asLong();
 
-        // Webhook idempotency: sending the same event twice records only 1 webhook row
-        String webhookPayload = "{\"event\":\"payment.captured\",\"payload\":{\"payment\":{\"entity\":{\"order_id\":\""
-                + rzpOrderId + "\",\"id\":\"" + rzpPaymentId + "\",\"method\":\"UPI\"}}}}";
-        String webhookSig = RazorpayPaymentService.hmacSha256Hex(webhookPayload, "rzp_webhook_secret_xyz456");
-        String eventId = "evt_unique_1001";
-
-        mockMvc.perform(post("/api/v1/payments/webhook")
-                        .header("X-Razorpay-Signature", webhookSig)
-                        .header("X-Razorpay-Event-Id", eventId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(webhookPayload))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(post("/api/v1/payments/webhook")
-                        .header("X-Razorpay-Signature", webhookSig)
-                        .header("X-Razorpay-Event-Id", eventId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(webhookPayload))
-                .andExpect(status().isOk());
-
-        assertThat(webhookEventRepository.findByEventId(eventId)).isPresent();
-
-        // Invalid order state transition (CONFIRMED -> DELIVERED skipping PACKED/SHIPPED) is rejected
-        mockMvc.perform(put("/api/v1/admin/orders/" + orderId + "/status")
-                        .with(user("admin@timecraft.test").roles("ADMIN"))
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new UpdateOrderStatusRequest(OrderStatus.DELIVERED, "Skip"))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_ORDER_STATE_TRANSITION"));
-
-        // Valid transitions: CONFIRMED -> PACKED -> SHIPPED -> DELIVERED
-        orderService.updateStatusByAdmin(orderId, OrderStatus.PACKED, "Packed");
-        orderService.updateStatusByAdmin(orderId, OrderStatus.SHIPPED, "Shipped");
-        orderService.updateStatusByAdmin(orderId, OrderStatus.DELIVERED, "Delivered");
-
-        // Verified purchaser submits a review and admin approves it
-        var reviewDto = reviewService.submitReview(userId,
-                new SubmitReviewRequest(variant.getProduct().getId(), 5, "Exquisite finishing", "Runs +1s/day", List.of()));
-        assertThat(reviewDto.verifiedPurchase()).isTrue();
-        reviewService.moderateReview(reviewDto.id(), new ModerateReviewRequest(ReviewStatus.APPROVED, "Verified"));
-
-        // Customer submits a return request for the delivered item
-        Long orderItemId = orderService.getAdminOrder(orderId).items().get(0).id();
-        var returnDto = returnAndRefundService.submitReturnRequest(userId,
-                new CreateReturnRequest(orderId, "CHANGED_MIND", "Unworn in box",
-                        List.of(new ReturnItemInput(orderItemId, 1, "Factory sealed"))));
-        assertThat(returnDto.status()).isEqualTo(ReturnRequestStatus.REQUESTED);
-
-        // Admin approves and marks return received (restores stock from 4 back to 5)
-        returnAndRefundService.reviewReturnRequest(returnDto.id(),
-                new AdminDecisionRequest(ReturnRequestStatus.APPROVED, "RMA issued"));
-        returnAndRefundService.reviewReturnRequest(returnDto.id(),
-                new AdminDecisionRequest(ReturnRequestStatus.RECEIVED, "Watch inspected in vault"));
-        assertThat(inventoryRepository.findByVariantId(variant.getId()).orElseThrow().getQuantityOnHand()).isEqualTo(5);
-
-        // Admin processes refund (stub gateway HTTP call to return a provider refund ID)
-        doReturn("rfnd_test_99001").when(paymentService).callRazorpayRefund(any(Payment.class), any(BigDecimal.class), anyString());
-        var refundDto = returnAndRefundService.initiateRefund(
-                new InitiateRefundRequest(orderId, returnDto.id(), null, "Full return refund"));
-        assertThat(refundDto.providerRefundId()).isEqualTo("rfnd_test_99001");
-        assertThat(orderRepository.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.REFUNDED);
-
-        // PDF invoice downloads cleanly
-        mockMvc.perform(get("/api/v1/orders/" + orderNumber + "/invoice")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @org.junit.jupiter.api.Order(6)
-    @DisplayName("16, 21-22. Order Cancellation, Bean Validation & Global Exception Handling")
-    void orderCancellationInputValidationAndGlobalExceptionHandler() throws Exception {
-        String token = registerAndGetAccessToken("cancel@timecraft.test");
-        Long userId = userRepository.findByEmailIgnoreCase("cancel@timecraft.test").orElseThrow().getId();
-        Long addrId = createIndianAddress(token);
-        ProductVariant variant = variantRepository.findById(2L).orElseThrow();
-        int stockBefore = inventoryService.getAvailableForVariant(variant.getId());
-
-        Order order = createOrderDirectly(userId, addrId, variant, 1, "cancel-key-" + UUID.randomUUID());
-        assertThat(inventoryService.getAvailableForVariant(variant.getId())).isEqualTo(stockBefore - 1);
-
-        // Customer cancels order -> reservation released
-        mockMvc.perform(post("/api/v1/orders/" + order.getId() + "/cancel")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new CancelOrderRequest("Ordered wrong dial"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CANCELLED"));
-
-        assertThat(inventoryService.getAvailableForVariant(variant.getId())).isEqualTo(stockBefore);
-
-        // Input validation: invalid registration payload returns structured 400 with fieldErrors
-        RegisterRequest badReg = new RegisterRequest("", "", "not-an-email", "weak", "badphone");
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(badReg)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
-                .andExpect(jsonPath("$.fieldErrors").isArray());
-
-        // Invalid coupon dates rejected
-        CouponRequest badCoupon = new CouponRequest("BADDATE", "desc", DiscountType.PERCENTAGE,
-                Money.of("15.00"), Money.ZERO, null,
-                Instant.now().plus(Duration.ofDays(5)), Instant.now(), 10, 1, true);
-        mockMvc.perform(post("/api/v1/admin/coupons")
-                        .with(user("admin@timecraft.test").roles("ADMIN"))
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(badCoupon)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_COUPON_DATES"));
-
-        // Non-existent product returns structured 404 without stack trace leak
-        mockMvc.perform(get("/api/v1/products/non-existent-watch-slug"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
-    }
-
-    @Test
-    @org.junit.jupiter.api.Order(7)
-    @DisplayName("23-24. Cash on Delivery (COD) Checkout, Unverified Block & Admin COD Settlement")
-    void codCheckoutAndAdminSettlement() throws Exception {
-        // Unverified user cannot place an order
-        String unverifiedEmail = "unverified@timecraft.test";
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new RegisterRequest("Unv", "User", unverifiedEmail, "WatchPass123", "+91 9000000001"))))
-                .andExpect(status().isCreated());
-        User unvUser = userRepository.findByEmailIgnoreCase(unverifiedEmail).orElseThrow();
-        String unvToken = jwtService.generateCustomerAccessToken(unvUser);
-        Long unvAddrId = createIndianAddress(unvToken);
-
-        MvcResult cheapestRes = mockMvc.perform(get("/api/v1/products?sort=price_asc&size=1"))
-                .andExpect(status().isOk())
-                .andReturn();
-        String cheapestSlug = objectMapper.readTree(cheapestRes.getResponse().getContentAsString())
-                .get("content").get(0).get("slug").asText();
-        MvcResult cheapestDetail = mockMvc.perform(get("/api/v1/products/" + cheapestSlug))
-                .andExpect(status().isOk())
-                .andReturn();
-        Long affordableVariantId = objectMapper.readTree(cheapestDetail.getResponse().getContentAsString())
-                .get("variants").get(0).get("id").asLong();
-
-        mockMvc.perform(post("/api/v1/cart/items")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + unvToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new AddCartItemRequest(affordableVariantId, 1))))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(post("/api/v1/orders")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + unvToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new PlaceOrderRequest(unvAddrId, null, "Blocked unverified", "cod-unv-1",
-                                        com.timecraft.order.entity.PaymentMethod.COD))))
-                .andExpect(status().isForbidden());
-
-        // Verified user places COD order -> CONFIRMED + PENDING_COD immediately
-        String codEmail = "codbuyer@timecraft.test";
-        String codToken = registerAndGetAccessToken(codEmail);
-        Long codAddrId = createIndianAddress(codToken);
-
-        mockMvc.perform(post("/api/v1/cart/items")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + codToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new AddCartItemRequest(affordableVariantId, 1))))
-                .andExpect(status().isOk());
-
-        MvcResult codOrderRes = mockMvc.perform(post("/api/v1/orders")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + codToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new PlaceOrderRequest(codAddrId, null, "Pay cash at door", "cod-ok-1",
-                                        com.timecraft.order.entity.PaymentMethod.COD))))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("CONFIRMED"))
-                .andExpect(jsonPath("$.paymentStatus").value("PENDING_COD"))
-                .andExpect(jsonPath("$.paymentMethod").value("COD"))
-                .andReturn();
-
-        Long codOrderId = objectMapper.readTree(codOrderRes.getResponse().getContentAsString()).get("id").asLong();
-
-        // Admin marks COD order PAID
-        mockMvc.perform(post("/admin/orders/" + codOrderId + "/mark-cod-paid")
-                        .with(user("admin@timecraft.test").roles("ADMIN"))
-                        .with(csrf())
-                        .param("note", "Cash collected by courier"))
-                .andExpect(status().is3xxRedirection());
-
-        Order updated = orderRepository.findById(codOrderId).orElseThrow();
-        assertThat(updated.getPaymentStatus()).isEqualTo(com.timecraft.order.entity.PaymentStatus.PAID);
-
-        // Verify HTML+PDF order invoice email was logged for the confirmed COD order
-        assertThat(emailLogRepository.findAll().stream()
-                .anyMatch(e -> "ORDER_INVOICE_CONFIRMATION".equals(e.getTemplate())
-                        && codOrderId.equals(e.getRelatedId()))).isTrue();
-
-        // Admin PDF invoice download returns valid PDF bytes
-        mockMvc.perform(get("/admin/orders/" + codOrderId + "/invoice")
-                        .with(user("admin@timecraft.test").roles("ADMIN")))
-                .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
-                        .contentType(MediaType.APPLICATION_PDF));
-    }
-
-    @Autowired
-    private com.timecraft.notification.repository.EmailLogRepository emailLogRepository;
-    @Autowired
-    private com.timecraft.authentication.repository.PasswordResetTokenRepository passwordResetTokenRepository;
-
-    @Test
-    @org.junit.jupiter.api.Order(8)
-    @DisplayName("25. Forgot Password & Reset Password OTP Flow (Single-Use & Re-Login)")
-    void forgotAndResetPasswordOtpFlow() throws Exception {
-        String email = "resetotp@timecraft.test";
-        registerAndGetAccessToken(email);
-
-        // Request 6-digit password reset OTP
-        mockMvc.perform(post("/api/v1/auth/forgot-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value(email))
-                .andExpect(jsonPath("$.otpSent").value(true));
-
-        User u = userRepository.findByEmailIgnoreCase(email).orElseThrow();
-        PasswordResetToken prt = passwordResetTokenRepository
-                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(u.getId()).orElseThrow();
-        prt.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "778899"));
-        passwordResetTokenRepository.save(prt);
-
-        // Wrong OTP rejected
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"otp\":\"000000\",\"newPassword\":\"NewWatchPass99\"}"))
-                .andExpect(status().isBadRequest());
-
-        // Correct OTP updates password
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"otp\":\"778899\",\"newPassword\":\"NewWatchPass99\"}"))
-                .andExpect(status().isOk());
-
-        // Reusing same OTP is rejected (single-use)
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"otp\":\"778899\",\"newPassword\":\"AnotherPass99\"}"))
-                .andExpect(status().isBadRequest());
-
-        // Login with new password succeeds
-        mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new LoginRequest(email, "NewWatchPass99"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty());
-    }
-
-    private String registerAndGetAccessToken(String email) throws Exception {
-        RegisterRequest reg = new RegisterRequest("Test", "Collector", email, "WatchPass123", "+91 9876543210");
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(reg)))
-                .andExpect(status().isCreated());
-        User u = userRepository.findByEmailIgnoreCase(email).orElseThrow();
-        EmailVerificationToken otpToken = emailTokenRepository
-                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(u.getId()).orElseThrow();
-        otpToken.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "654321"));
-        emailTokenRepository.save(otpToken);
-
-        MvcResult verifyRes = mockMvc.perform(post("/api/v1/auth/verify-otp")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"otp\":\"654321\"}"))
-                .andExpect(status().isOk())
-                .andReturn();
-        return objectMapper.readTree(verifyRes.getResponse().getContentAsString()).get("accessToken").asText();
-    }
-
-    private Long createIndianAddress(String token) throws Exception {
-        AddressRequest req = new AddressRequest(
-                "Aarav Mehta", "9876543210", "12 Lavelle Road", "Floor 3", "Near Cubbon Park",
-                "Bengaluru", "Karnataka", "560001", "IN", AddressType.HOME, true);
-        MvcResult res = mockMvc.perform(post("/api/v1/addresses")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        return objectMapper.readTree(res.getResponse().getContentAsString()).get("id").asLong();
-    }
-
-    private Order createOrderDirectly(Long userId, Long addressId, ProductVariant variant, int qty, String idemp) {
-        String token = jwtForUser(userId);
-        try {
-            mockMvc.perform(post("/api/v1/cart/items")
-                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(new AddCartItemRequest(variant.getId(), qty))))
-                    .andExpect(status().isOk());
-            var dto = orderService.placeOrder(userId, new PlaceOrderRequest(addressId, null, null, idemp), idemp);
-            return orderRepository.findById(dto.id()).orElseThrow();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+                mockMvc.perform(post("/api/v1/wishlist/items/" + wishItemId + "/move-to-cart")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalQuantity").value(3));
         }
-    }
 
-    @Autowired
-    private com.timecraft.security.JwtService jwtService;
+        @Test
+        @org.junit.jupiter.api.Order(5)
+        @DisplayName("13-20. Stock Reservation, Concurrency Locking, Order Lifecycle, Razorpay Signature & Webhook Idempotency, Returns & Refunds")
+        void inventoryConcurrencyOrderPaymentWebhookReturnAndRefund() throws Exception {
+                String token = registerAndGetAccessToken("buyer@timecraft.test");
+                Long userId = userRepository.findByEmailIgnoreCase("buyer@timecraft.test").orElseThrow().getId();
+                Long addressId = createIndianAddress(token);
 
-    private String jwtForUser(Long userId) {
-        User u = userRepository.findById(userId).orElseThrow();
-        return jwtService.generateCustomerAccessToken(u);
-    }
+                ProductVariant variant = variantRepository.findById(1L).orElseThrow();
+                Inventory invBefore = inventoryRepository.findByVariantId(variant.getId()).orElseThrow();
+                invBefore.setQuantityOnHand(5);
+                invBefore.setQuantityReserved(0);
+                inventoryRepository.save(invBefore);
+
+                // Concurrent stock reservation test: 5 threads try to reserve 2 units each from
+                // 5 available -> at most 2 succeed (4 units)
+                Order dummyOrder = createOrderDirectly(userId, addressId, variant, 1,
+                                "idemp-seed-" + UUID.randomUUID());
+                // Release the 1 unit from dummyOrder first so exactly 5 are available
+                orderService.cancelByCustomer(userId, dummyOrder.getId(), "Release for concurrency test");
+
+                int threads = 5;
+                CountDownLatch ready = new CountDownLatch(threads);
+                CountDownLatch start = new CountDownLatch(1);
+                CountDownLatch done = new CountDownLatch(threads);
+                AtomicInteger successes = new AtomicInteger();
+                AtomicInteger conflicts = new AtomicInteger();
+                var pool = Executors.newFixedThreadPool(threads);
+                for (int i = 0; i < threads; i++) {
+                        pool.submit(() -> {
+                                ready.countDown();
+                                try {
+                                        start.await();
+                                        inventoryService.reserveForOrder(dummyOrder, variant, 2,
+                                                        Duration.ofMinutes(10));
+                                        successes.incrementAndGet();
+                                } catch (Exception ex) {
+                                        conflicts.incrementAndGet();
+                                } finally {
+                                        done.countDown();
+                                }
+                        });
+                }
+                ready.await();
+                start.countDown();
+                done.await();
+                pool.shutdown();
+
+                assertThat(successes.get()).isEqualTo(2);
+                assertThat(conflicts.get()).isEqualTo(3);
+                inventoryService.releaseReservationsForOrder(dummyOrder,
+                                com.timecraft.inventory.entity.StockReservationStatus.RELEASED,
+                                "Reset after concurrency test");
+
+                // Place a real order through /api/v1/orders with idempotency key
+                mockMvc.perform(post("/api/v1/cart/items")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AddCartItemRequest(variant.getId(), 1))))
+                                .andExpect(status().isOk());
+
+                String idempKey = "order-key-" + UUID.randomUUID();
+                PlaceOrderRequest placeReq = new PlaceOrderRequest(addressId, "WELCOME10", "Gift wrap", idempKey);
+                MvcResult orderRes = mockMvc.perform(post("/api/v1/orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .header("X-Idempotency-Key", idempKey)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(placeReq)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andExpect(jsonPath("$.paymentStatus").value("PENDING"))
+                                .andExpect(jsonPath("$.items[0].modelName").isNotEmpty())
+                                .andExpect(jsonPath("$.items[0].dialColor").isNotEmpty())
+                                .andExpect(jsonPath("$.items[0].strapMaterial").isNotEmpty())
+                                .andReturn();
+                JsonNode orderJson = objectMapper.readTree(orderRes.getResponse().getContentAsString());
+                Long orderId = orderJson.get("id").asLong();
+                String orderNumber = orderJson.get("orderNumber").asText();
+
+                // Duplicate order placement with same idempotency key returns the exact same
+                // order
+                mockMvc.perform(post("/api/v1/orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .header("X-Idempotency-Key", idempKey)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(placeReq)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.id").value(orderId));
+
+                // Verify stock is reserved (5 on hand, 1 reserved -> 4 available)
+                assertThat(inventoryService.getAvailableForVariant(variant.getId())).isEqualTo(4);
+
+                // Create a Razorpay payment record in CREATED state for signature verification
+                // test
+                Order orderEntity = orderRepository.findById(orderId).orElseThrow();
+                String rzpOrderId = "order_test_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+                Payment payment = paymentRepository.save(Payment.builder()
+                                .order(orderEntity)
+                                .provider("RAZORPAY")
+                                .providerOrderId(rzpOrderId)
+                                .amount(orderEntity.getGrandTotal())
+                                .currency("INR")
+                                .status(PaymentAttemptStatus.CREATED)
+                                .build());
+
+                // Invalid signature is rejected with 400
+                String rzpPaymentId = "pay_test_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+                mockMvc.perform(post("/api/v1/payments/verify")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new VerifyPaymentRequest(orderId, rzpOrderId, rzpPaymentId,
+                                                                "invalid_sig", "UPI"))))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_PAYMENT_SIGNATURE"));
+
+                // Valid HMAC-SHA256 signature confirms the order and commits inventory
+                String validSig = RazorpayPaymentService.hmacSha256Hex(
+                                rzpOrderId + "|" + rzpPaymentId, "rzp_test_secret_abc987");
+                mockMvc.perform(post("/api/v1/payments/verify")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new VerifyPaymentRequest(orderId, rzpOrderId, rzpPaymentId, validSig,
+                                                                "UPI"))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                                .andExpect(jsonPath("$.paymentStatus").value("PAID"));
+
+                // Inventory is now committed: onHand reduced from 5 to 4, reserved back to 0
+                Inventory invAfterPay = inventoryRepository.findByVariantId(variant.getId()).orElseThrow();
+                assertThat(invAfterPay.getQuantityOnHand()).isEqualTo(4);
+                assertThat(invAfterPay.getQuantityReserved()).isEqualTo(0);
+
+                // Webhook idempotency: sending the same event twice records only 1 webhook row
+                String webhookPayload = "{\"event\":\"payment.captured\",\"payload\":{\"payment\":{\"entity\":{\"order_id\":\""
+                                + rzpOrderId + "\",\"id\":\"" + rzpPaymentId + "\",\"method\":\"UPI\"}}}}";
+                String webhookSig = RazorpayPaymentService.hmacSha256Hex(webhookPayload, "rzp_webhook_secret_xyz456");
+                String eventId = "evt_unique_1001";
+
+                mockMvc.perform(post("/api/v1/payments/webhook")
+                                .header("X-Razorpay-Signature", webhookSig)
+                                .header("X-Razorpay-Event-Id", eventId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(webhookPayload))
+                                .andExpect(status().isOk());
+
+                mockMvc.perform(post("/api/v1/payments/webhook")
+                                .header("X-Razorpay-Signature", webhookSig)
+                                .header("X-Razorpay-Event-Id", eventId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(webhookPayload))
+                                .andExpect(status().isOk());
+
+                assertThat(webhookEventRepository.findByEventId(eventId)).isPresent();
+
+                // Invalid order state transition (CONFIRMED -> DELIVERED skipping
+                // PACKED/SHIPPED) is rejected
+                mockMvc.perform(put("/api/v1/admin/orders/" + orderId + "/status")
+                                .with(user("admin@timecraft.test").roles("ADMIN"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new UpdateOrderStatusRequest(OrderStatus.DELIVERED, "Skip"))))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_ORDER_STATE_TRANSITION"));
+
+                // Valid transitions: CONFIRMED -> PACKED -> SHIPPED -> DELIVERED
+                orderService.updateStatusByAdmin(orderId, OrderStatus.PACKED, "Packed");
+                orderService.updateStatusByAdmin(orderId, OrderStatus.SHIPPED, "Shipped");
+                orderService.updateStatusByAdmin(orderId, OrderStatus.DELIVERED, "Delivered");
+
+                // Verified purchaser submits a review and admin approves it
+                var reviewDto = reviewService.submitReview(userId,
+                                new SubmitReviewRequest(variant.getProduct().getId(), 5, "Exquisite finishing",
+                                                "Runs +1s/day", List.of()));
+                assertThat(reviewDto.verifiedPurchase()).isTrue();
+                reviewService.moderateReview(reviewDto.id(),
+                                new ModerateReviewRequest(ReviewStatus.APPROVED, "Verified"));
+
+                // Customer submits a return request for the delivered item
+                Long orderItemId = orderService.getAdminOrder(orderId).items().get(0).id();
+                var returnDto = returnAndRefundService.submitReturnRequest(userId,
+                                new CreateReturnRequest(orderId, "CHANGED_MIND", "Unworn in box",
+                                                List.of(new ReturnItemInput(orderItemId, 1, "Factory sealed"))));
+                assertThat(returnDto.status()).isEqualTo(ReturnRequestStatus.REQUESTED);
+
+                // Admin approves and marks return received (restores stock from 4 back to 5)
+                returnAndRefundService.reviewReturnRequest(returnDto.id(),
+                                new AdminDecisionRequest(ReturnRequestStatus.APPROVED, "RMA issued"));
+                returnAndRefundService.reviewReturnRequest(returnDto.id(),
+                                new AdminDecisionRequest(ReturnRequestStatus.RECEIVED, "Watch inspected in vault"));
+                assertThat(inventoryRepository.findByVariantId(variant.getId()).orElseThrow().getQuantityOnHand())
+                                .isEqualTo(5);
+
+                // Admin processes refund (stub gateway HTTP call to return a provider refund
+                // ID)
+                doReturn("rfnd_test_99001").when(paymentService).callRazorpayRefund(any(Payment.class),
+                                any(BigDecimal.class), anyString());
+                var refundDto = returnAndRefundService.initiateRefund(
+                                new InitiateRefundRequest(orderId, returnDto.id(), null, "Full return refund"));
+                assertThat(refundDto.providerRefundId()).isEqualTo("rfnd_test_99001");
+                assertThat(orderRepository.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.REFUNDED);
+
+                // PDF invoice downloads cleanly
+                mockMvc.perform(get("/api/v1/orders/" + orderNumber + "/invoice")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                                .andExpect(status().isOk());
+        }
+
+        @Test
+        @org.junit.jupiter.api.Order(6)
+        @DisplayName("16, 21-22. Order Cancellation, Bean Validation & Global Exception Handling")
+        void orderCancellationInputValidationAndGlobalExceptionHandler() throws Exception {
+                String token = registerAndGetAccessToken("cancel@timecraft.test");
+                Long userId = userRepository.findByEmailIgnoreCase("cancel@timecraft.test").orElseThrow().getId();
+                Long addrId = createIndianAddress(token);
+                ProductVariant variant = variantRepository.findById(2L).orElseThrow();
+                int stockBefore = inventoryService.getAvailableForVariant(variant.getId());
+
+                Order order = createOrderDirectly(userId, addrId, variant, 1, "cancel-key-" + UUID.randomUUID());
+                assertThat(inventoryService.getAvailableForVariant(variant.getId())).isEqualTo(stockBefore - 1);
+
+                // Customer cancels order -> reservation released
+                mockMvc.perform(post("/api/v1/orders/" + order.getId() + "/cancel")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new CancelOrderRequest("Ordered wrong dial"))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+                assertThat(inventoryService.getAvailableForVariant(variant.getId())).isEqualTo(stockBefore);
+
+                // Input validation: invalid registration payload returns structured 400 with
+                // fieldErrors
+                RegisterRequest badReg = new RegisterRequest("", "", "not-an-email", "weak", "badphone");
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(badReg)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                                .andExpect(jsonPath("$.fieldErrors").isArray());
+
+                // Invalid coupon dates rejected
+                CouponRequest badCoupon = new CouponRequest("BADDATE", "desc", DiscountType.PERCENTAGE,
+                                Money.of("15.00"), Money.ZERO, null,
+                                Instant.now().plus(Duration.ofDays(5)), Instant.now(), 10, 1, true);
+                mockMvc.perform(post("/api/v1/admin/coupons")
+                                .with(user("admin@timecraft.test").roles("ADMIN"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(badCoupon)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_COUPON_DATES"));
+
+                // Non-existent product returns structured 404 without stack trace leak
+                mockMvc.perform(get("/api/v1/products/non-existent-watch-slug"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        }
+
+        @Test
+        @org.junit.jupiter.api.Order(7)
+        @DisplayName("23-24. Cash on Delivery (COD) Checkout, Unverified Block & Admin COD Settlement")
+        void codCheckoutAndAdminSettlement() throws Exception {
+                // Verify COD max amount is configured to 500000.00 via timecraft.checkout.max-cod-amount
+                mockMvc.perform(get("/api/v1/store/config"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.cod_max_amount").value("500000.00"))
+                                .andExpect(jsonPath("$.max_cod_amount").value("500000.00"));
+
+                // Unverified user cannot place an order
+                String unverifiedEmail = "unverified@timecraft.test";
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new RegisterRequest("Unv", "User", unverifiedEmail, "WatchPass123",
+                                                                "+91 9000000001"))))
+                                .andExpect(status().isCreated());
+                User unvUser = userRepository.findByEmailIgnoreCase(unverifiedEmail).orElseThrow();
+                String unvToken = jwtService.generateCustomerAccessToken(unvUser);
+                Long unvAddrId = createIndianAddress(unvToken);
+
+                MvcResult cheapestRes = mockMvc.perform(get("/api/v1/products?sort=price_asc&size=1"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                String cheapestSlug = objectMapper.readTree(cheapestRes.getResponse().getContentAsString())
+                                .get("content").get(0).get("slug").asText();
+                MvcResult cheapestDetail = mockMvc.perform(get("/api/v1/products/" + cheapestSlug))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                Long affordableVariantId = objectMapper.readTree(cheapestDetail.getResponse().getContentAsString())
+                                .get("variants").get(0).get("id").asLong();
+
+                mockMvc.perform(post("/api/v1/cart/items")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + unvToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper
+                                                .writeValueAsString(new AddCartItemRequest(affordableVariantId, 1))))
+                                .andExpect(status().isOk());
+
+                mockMvc.perform(post("/api/v1/orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + unvToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new PlaceOrderRequest(unvAddrId, null, "Blocked unverified",
+                                                                "cod-unv-1",
+                                                                com.timecraft.order.entity.PaymentMethod.COD))))
+                                .andExpect(status().isForbidden());
+
+                // Verified user places COD order -> CONFIRMED + PENDING_COD immediately
+                String codEmail = "codbuyer@timecraft.test";
+                String codToken = registerAndGetAccessToken(codEmail);
+                Long codAddrId = createIndianAddress(codToken);
+
+                mockMvc.perform(post("/api/v1/cart/items")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + codToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper
+                                                .writeValueAsString(new AddCartItemRequest(affordableVariantId, 1))))
+                                .andExpect(status().isOk());
+
+                MvcResult codOrderRes = mockMvc.perform(post("/api/v1/orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + codToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new PlaceOrderRequest(codAddrId, null, "Pay cash at door", "cod-ok-1",
+                                                                com.timecraft.order.entity.PaymentMethod.COD))))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                                .andExpect(jsonPath("$.paymentStatus").value("PENDING_COD"))
+                                .andExpect(jsonPath("$.paymentMethod").value("COD"))
+                                .andReturn();
+
+                Long codOrderId = objectMapper.readTree(codOrderRes.getResponse().getContentAsString()).get("id")
+                                .asLong();
+
+                // Admin marks COD order PAID
+                mockMvc.perform(post("/admin/orders/" + codOrderId + "/mark-cod-paid")
+                                .with(user("admin@timecraft.test").roles("ADMIN"))
+                                .with(csrf())
+                                .param("note", "Cash collected by courier"))
+                                .andExpect(status().is3xxRedirection());
+
+                Order updated = orderRepository.findById(codOrderId).orElseThrow();
+                assertThat(updated.getPaymentStatus()).isEqualTo(com.timecraft.order.entity.PaymentStatus.PAID);
+
+                // Verify HTML+PDF order invoice email was logged for the confirmed COD order
+                assertThat(emailLogRepository.findAll().stream()
+                                .anyMatch(e -> "ORDER_INVOICE_CONFIRMATION".equals(e.getTemplate())
+                                                && codOrderId.equals(e.getRelatedId())))
+                                .isTrue();
+
+                // Admin PDF invoice download returns valid PDF bytes
+                mockMvc.perform(get("/admin/orders/" + codOrderId + "/invoice")
+                                .with(user("admin@timecraft.test").roles("ADMIN")))
+                                .andExpect(status().isOk())
+                                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                                                .contentType(MediaType.APPLICATION_PDF));
+
+                // Verify luxury HTML invoice email template includes TimeCraft branding, inline
+                // GIF, product image, and founder sign-off
+                transactionTemplate.executeWithoutResult(status -> {
+                        Order ord = orderRepository.findById(codOrderId).orElseThrow();
+                        String html = invoicePdfService.buildHtmlInvoice(
+                                        ord,
+                                        "http://localhost:8080/pages/order-details.html?order=" + ord.getOrderNumber(),
+                                        "http://localhost:8080");
+                        assertThat(html).contains("TIMECRAFT");
+                        assertThat(html).contains("cid:orderConfirmedGif");
+                        assertThat(html).contains("Goutam Gurjar");
+                        assertThat(html).contains("Founder, TimeCraft");
+                        assertThat(html).contains(ord.getOrderNumber());
+                        String itemImg = ord.getItems().get(0).getImageUrl();
+                        assertThat(itemImg).isNotBlank();
+                        assertThat(html).contains(itemImg.replace("&", "&amp;"));
+                });
+        }
+
+        @Autowired
+        private com.timecraft.notification.repository.EmailLogRepository emailLogRepository;
+        @Autowired
+        private com.timecraft.authentication.repository.PasswordResetTokenRepository passwordResetTokenRepository;
+        @Autowired
+        private com.timecraft.order.service.InvoicePdfService invoicePdfService;
+        @Autowired
+        private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
+        @Test
+        @org.junit.jupiter.api.Order(8)
+        @DisplayName("25. Forgot Password & Reset Password OTP Flow (Single-Use & Re-Login)")
+        void forgotAndResetPasswordOtpFlow() throws Exception {
+                String email = "resetotp@timecraft.test";
+                registerAndGetAccessToken(email);
+
+                // Request 6-digit password reset OTP
+                mockMvc.perform(post("/api/v1/auth/forgot-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email + "\"}"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.email").value(email))
+                                .andExpect(jsonPath("$.otpSent").value(true));
+
+                User u = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+                PasswordResetToken prt = passwordResetTokenRepository
+                                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(u.getId()).orElseThrow();
+                prt.setTokenHash(com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "778899"));
+                passwordResetTokenRepository.save(prt);
+
+                // Wrong OTP rejected
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email
+                                                + "\",\"otp\":\"000000\",\"newPassword\":\"NewWatchPass99\"}"))
+                                .andExpect(status().isBadRequest());
+
+                // Correct OTP updates password
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email
+                                                + "\",\"otp\":\"778899\",\"newPassword\":\"NewWatchPass99\"}"))
+                                .andExpect(status().isOk());
+
+                // Reusing same OTP is rejected (single-use)
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email
+                                                + "\",\"otp\":\"778899\",\"newPassword\":\"AnotherPass99\"}"))
+                                .andExpect(status().isBadRequest());
+
+                // Login with new password succeeds
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new LoginRequest(email, "NewWatchPass99"))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.accessToken").isNotEmpty());
+        }
+
+        @Test
+        @org.junit.jupiter.api.Order(9)
+        @DisplayName("26. Razorpay Failure & Modal Dismiss Keep Pending Order Alive, Retry Payment & 500K COD Fallback (<= 500k vs > 500k)")
+        void paymentFailureRetryAndSafeCodFallbackFlow() throws Exception {
+                String email = "retrycod@timecraft.test";
+                String token = registerAndGetAccessToken(email);
+                Long addrId = createIndianAddress(token);
+
+                // Find a watch (> ₹50,000 and <= ₹5,00,000) and the highest-priced watch to exceed ₹5,00,000 with multiple units
+                MvcResult midLuxuryRes = mockMvc.perform(get("/api/v1/products?minPrice=100000&maxPrice=300000&inStock=true&size=1"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                String midLuxurySlug = objectMapper.readTree(midLuxuryRes.getResponse().getContentAsString())
+                                .get("content").get(0).get("slug").asText();
+                Long codEligibleLuxuryVariantId = objectMapper.readTree(
+                                mockMvc.perform(get("/api/v1/products/" + midLuxurySlug)).andReturn()
+                                                .getResponse().getContentAsString())
+                                .get("variants").get(0).get("id").asLong();
+
+                MvcResult topLuxuryRes = mockMvc.perform(get("/api/v1/products?sort=price_desc&inStock=true&size=1"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                String topLuxurySlug = objectMapper.readTree(topLuxuryRes.getResponse().getContentAsString())
+                                .get("content").get(0).get("slug").asText();
+                Long highValueVariantId = objectMapper.readTree(
+                                mockMvc.perform(get("/api/v1/products/" + topLuxurySlug)).andReturn()
+                                                .getResponse().getContentAsString())
+                                .get("variants").get(0).get("id").asLong();
+                // Ensure sufficient stock on highValueVariantId so a 3-unit collector order (> ₹5,00,000) can be placed
+                inventoryService.adjustStock(new InventoryService.InventoryAdjustmentRequest(
+                                highValueVariantId, com.timecraft.inventory.entity.InventoryTransactionType.STOCK_IN,
+                                5, null, "Top up stock for >500k COD cap test"));
+
+                // --- PART A: Order up to ₹5,00,000 (even > ₹50,000 Razorpay test cap) fails online -> stays PENDING -> switches to COD ---
+                int stockBeforeCodSwitch = inventoryService.getAvailableForVariant(codEligibleLuxuryVariantId);
+
+                mockMvc.perform(post("/api/v1/cart/items")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AddCartItemRequest(codEligibleLuxuryVariantId, 1))))
+                                .andExpect(status().isOk());
+
+                MvcResult ordARes = mockMvc.perform(post("/api/v1/orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new PlaceOrderRequest(addrId, null, "Razorpay test limit fallback", "retry-cod-a"))))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andExpect(jsonPath("$.paymentStatus").value("PENDING"))
+                                .andExpect(jsonPath("$.paymentMethod").value("RAZORPAY"))
+                                .andReturn();
+                JsonNode ordAJson = objectMapper.readTree(ordARes.getResponse().getContentAsString());
+                Long ordAId = ordAJson.get("id").asLong();
+                String ordANumber = ordAJson.get("orderNumber").asText();
+                BigDecimal ordATotal = new BigDecimal(ordAJson.get("grandTotal").asText());
+                assertThat(ordATotal).isLessThanOrEqualTo(new BigDecimal("500000.00"));
+
+                Order ordAEntity = orderRepository.findById(ordAId).orElseThrow();
+                String rzpOrdA1 = "order_test_fail_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+                paymentRepository.save(Payment.builder()
+                                .order(ordAEntity)
+                                .provider("RAZORPAY")
+                                .providerOrderId(rzpOrdA1)
+                                .amount(ordAEntity.getGrandTotal())
+                                .currency("INR")
+                                .status(PaymentAttemptStatus.CREATED)
+                                .build());
+
+                // 1) Report payment.failed -> order MUST stay PENDING (not FAILED/CANCELLED), reservation still held
+                mockMvc.perform(post("/api/v1/payments/failure")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new RazorpayPaymentService.PaymentFailureReport(
+                                                                ordAId, rzpOrdA1, "pay_declined_1",
+                                                                "Amount exceeds Razorpay test limit", false))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(ordAId))
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andExpect(jsonPath("$.paymentStatus").value("PENDING"));
+
+                assertThat(paymentRepository.findByProviderOrderId(rzpOrdA1).orElseThrow().getStatus())
+                                .isEqualTo(PaymentAttemptStatus.FAILED);
+                assertThat(inventoryService.getAvailableForVariant(codEligibleLuxuryVariantId))
+                                .isEqualTo(stockBeforeCodSwitch - 1);
+
+                // 2) Report modal dismissal on a second attempt -> order STILL stays PENDING
+                String rzpOrdA2 = "order_test_dismiss_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+                paymentRepository.save(Payment.builder()
+                                .order(ordAEntity)
+                                .provider("RAZORPAY")
+                                .providerOrderId(rzpOrdA2)
+                                .amount(ordAEntity.getGrandTotal())
+                                .currency("INR")
+                                .status(PaymentAttemptStatus.CREATED)
+                                .build());
+
+                mockMvc.perform(post("/api/v1/payments/failure")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new RazorpayPaymentService.PaymentFailureReport(
+                                                                ordAId, rzpOrdA2, null,
+                                                                "Customer closed payment modal", true))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(ordAId))
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andExpect(jsonPath("$.paymentStatus").value("PENDING"));
+
+                assertThat(paymentRepository.findByProviderOrderId(rzpOrdA2).orElseThrow().getStatus())
+                                .isEqualTo(PaymentAttemptStatus.CANCELLED);
+
+                // 3) Switch the SAME pending order (<= ₹5,00,000) to Cash on Delivery -> updates cleanly, zero duplicate orders
+                mockMvc.perform(post("/api/v1/orders/" + ordANumber + "/switch-to-cod")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(ordAId))
+                                .andExpect(jsonPath("$.orderNumber").value(ordANumber))
+                                .andExpect(jsonPath("$.paymentMethod").value("COD"))
+                                .andExpect(jsonPath("$.paymentStatus").value("PENDING_COD"))
+                                .andExpect(jsonPath("$.status").value("CONFIRMED"));
+
+                // Idempotent repeat call succeeds with the exact same order
+                mockMvc.perform(post("/api/v1/orders/" + ordANumber + "/switch-to-cod")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(ordAId))
+                                .andExpect(jsonPath("$.paymentMethod").value("COD"));
+
+                // --- PART B: Order > ₹5,00,000 fails online payment -> COD switch rejected -> Retry online succeeds ---
+                mockMvc.perform(post("/api/v1/cart/items")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AddCartItemRequest(highValueVariantId, 3))))
+                                .andExpect(status().isOk());
+
+                MvcResult ordBRes = mockMvc.perform(post("/api/v1/orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new PlaceOrderRequest(addrId, null, "Vault collector order >500k", "retry-lux-b"))))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andReturn();
+                JsonNode ordBJson = objectMapper.readTree(ordBRes.getResponse().getContentAsString());
+                Long ordBId = ordBJson.get("id").asLong();
+                String ordBNumber = ordBJson.get("orderNumber").asText();
+                BigDecimal ordBTotal = new BigDecimal(ordBJson.get("grandTotal").asText());
+                assertThat(ordBTotal).isGreaterThan(new BigDecimal("500000.00"));
+
+                Order ordBEntity = orderRepository.findById(ordBId).orElseThrow();
+                String rzpOrdB1 = "order_test_luxfail_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+                paymentRepository.save(Payment.builder()
+                                .order(ordBEntity)
+                                .provider("RAZORPAY")
+                                .providerOrderId(rzpOrdB1)
+                                .amount(ordBEntity.getGrandTotal())
+                                .currency("INR")
+                                .status(PaymentAttemptStatus.CREATED)
+                                .build());
+
+                mockMvc.perform(post("/api/v1/payments/failure")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new RazorpayPaymentService.PaymentFailureReport(
+                                                                ordBId, rzpOrdB1, "pay_lux_declined",
+                                                                "Netbanking per-transaction bank limit", false))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("PENDING"));
+
+                // Attempting to switch > ₹5,00,000 order to COD is rejected with COD_LIMIT_EXCEEDED while keeping order PENDING
+                mockMvc.perform(post("/api/v1/orders/" + ordBNumber + "/switch-to-cod")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("COD_LIMIT_EXCEEDED"));
+
+                assertThat(orderRepository.findById(ordBId).orElseThrow().getStatus()).isEqualTo(OrderStatus.PENDING);
+
+                // Retry online payment on the SAME luxury order (ordBId) -> succeeds cleanly with zero duplicate orders
+                String rzpOrdBRetry = "order_test_luxretry_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+                paymentRepository.save(Payment.builder()
+                                .order(ordBEntity)
+                                .provider("RAZORPAY")
+                                .providerOrderId(rzpOrdBRetry)
+                                .amount(ordBEntity.getGrandTotal())
+                                .currency("INR")
+                                .status(PaymentAttemptStatus.CREATED)
+                                .build());
+                String retryPayId = "pay_test_luxok_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+                String validSig = RazorpayPaymentService.hmacSha256Hex(
+                                rzpOrdBRetry + "|" + retryPayId, "rzp_test_secret_abc987");
+
+                mockMvc.perform(post("/api/v1/payments/verify")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new VerifyPaymentRequest(ordBId, rzpOrdBRetry, retryPayId, validSig, "CARD"))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(ordBId))
+                                .andExpect(jsonPath("$.orderNumber").value(ordBNumber))
+                                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                                .andExpect(jsonPath("$.paymentStatus").value("PAID"));
+
+                // Customer has ONLY the 2 orders placed (no duplicate orders created during retries or COD switch)
+                MvcResult myOrdersRes = mockMvc.perform(get("/api/v1/orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                assertThat(objectMapper.readTree(myOrdersRes.getResponse().getContentAsString())
+                                .get("totalElements").asInt()).isEqualTo(2);
+        }
+
+        @Test
+        @org.junit.jupiter.api.Order(10)
+        @DisplayName("27. PayU Payment Initiation, SHA-512 Hash Verification, Failure Callback & Razorpay-to-PayU Gateway Switch")
+        void payuCheckoutGatewaySwitchAndHashVerificationFlow() throws Exception {
+                String email = "payubuyer@timecraft.test";
+                String token = registerAndGetAccessToken(email);
+                Long addrId = createIndianAddress(token);
+
+                MvcResult watchListRes = mockMvc.perform(get("/api/v1/products?minPrice=30000&inStock=true&size=1"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                String watchSlug = objectMapper.readTree(watchListRes.getResponse().getContentAsString())
+                                .get("content").get(0).get("slug").asText();
+                Long variantId = objectMapper.readTree(
+                                mockMvc.perform(get("/api/v1/products/" + watchSlug)).andReturn()
+                                                .getResponse().getContentAsString())
+                                .get("variants").get(0).get("id").asLong();
+
+                int stockBefore = inventoryService.getAvailableForVariant(variantId);
+
+                // --- PART A: Direct PayU order placement, forward hash check, tampered hash rejection & failure callback ---
+                mockMvc.perform(post("/api/v1/cart/items")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AddCartItemRequest(variantId, 1))))
+                                .andExpect(status().isOk());
+
+                MvcResult directPayuOrderRes = mockMvc.perform(post("/api/v1/orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new PlaceOrderRequest(addrId, null, "Direct PayU checkout",
+                                                                "payu-direct-1",
+                                                                com.timecraft.order.entity.PaymentMethod.PAYU))))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.status").value("PENDING"))
+                                .andExpect(jsonPath("$.paymentStatus").value("PENDING"))
+                                .andExpect(jsonPath("$.paymentMethod").value("PAYU"))
+                                .andReturn();
+                JsonNode directOrderJson = objectMapper.readTree(directPayuOrderRes.getResponse().getContentAsString());
+                Long directOrderId = directOrderJson.get("id").asLong();
+                String directOrderNo = directOrderJson.get("orderNumber").asText();
+
+                MvcResult initRes = mockMvc.perform(post("/api/v1/payments/payu/initiate")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"orderId\":" + directOrderId + ",\"retry\":false}"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.key").value("otqqIX"))
+                                .andExpect(jsonPath("$.actionUrl").value("https://test.payu.in/_payment"))
+                                .andExpect(jsonPath("$.orderNumber").value(directOrderNo))
+                                .andReturn();
+                JsonNode initJson = objectMapper.readTree(initRes.getResponse().getContentAsString());
+                String txnid1 = initJson.get("txnid").asText();
+                String amountFormatted = initJson.get("amountFormatted").asText();
+                String productinfo = initJson.get("productinfo").asText();
+                String firstname = initJson.get("firstname").asText();
+                String customerEmail = initJson.get("email").asText();
+                String udf1 = initJson.get("udf1").asText();
+                String expectedReqHash = com.timecraft.payment.service.PayuPaymentService.computeRequestHash(
+                                "otqqIX", txnid1, amountFormatted, productinfo, firstname, customerEmail,
+                                udf1, "", "", "", "", "Vx6TKHBnxErLEvbrTmLZGMb4eVEAtyQM");
+                assertThat(initJson.get("hash").asText()).isEqualTo(expectedReqHash);
+
+                // Tampered reverse hash on /payments/payu/verify is rejected with 400 and keeps order PENDING
+                var badVerify = new com.timecraft.payment.service.PayuPaymentService.PayuVerifyRequest(
+                                txnid1, "success", "mih_tampered_1", "NB", amountFormatted, productinfo,
+                                firstname, customerEmail, udf1, "", "", "", "", null, null, "tampered_invalid_hash");
+                mockMvc.perform(post("/api/v1/payments/payu/verify")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(badVerify)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_PAYMENT_SIGNATURE"));
+                assertThat(orderRepository.findById(directOrderId).orElseThrow().getStatus())
+                                .isEqualTo(OrderStatus.PENDING);
+
+                // --- PART B: Razorpay failure -> Switch SAME order to PayU -> Verified PayU callback confirms order ---
+                MvcResult retryInitRes = mockMvc.perform(post("/api/v1/payments/payu/initiate")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"orderId\":" + directOrderId + ",\"retry\":true}"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                JsonNode retryJson = objectMapper.readTree(retryInitRes.getResponse().getContentAsString());
+                String txnid2 = retryJson.get("txnid").asText();
+                assertThat(txnid2).isNotEqualTo(txnid1);
+
+                // Simulate PayU cross-origin failure callback (Origin: https://test.payu.in AND Origin: null) -> 302 redirect, NEVER "Invalid CORS request"
+                String failCallbackHash = com.timecraft.payment.service.PayuPaymentService.computeResponseHash(
+                                "Vx6TKHBnxErLEvbrTmLZGMb4eVEAtyQM", "failure",
+                                "", "", "", "", udf1, customerEmail, firstname, productinfo, amountFormatted, txnid2,
+                                "otqqIX", null);
+                mockMvc.perform(post("/api/v1/payments/payu/callback")
+                                .header(HttpHeaders.ORIGIN, "https://test.payu.in")
+                                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                                .param("status", "failure")
+                                .param("txnid", txnid2)
+                                .param("mihpayid", "mih_fail_2001")
+                                .param("mode", "NB")
+                                .param("amount", amountFormatted)
+                                .param("productinfo", productinfo)
+                                .param("firstname", firstname)
+                                .param("email", customerEmail)
+                                .param("udf1", udf1)
+                                .param("key", "otqqIX")
+                                .param("error_Message", "Bank declined netbanking payment")
+                                .param("hash", failCallbackHash))
+                                .andExpect(status().isFound())
+                                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                                                .string(HttpHeaders.LOCATION, org.hamcrest.Matchers.containsString(
+                                                                "/pages/checkout.html?order=" + directOrderNo)));
+
+                // Verify GET callback with Origin: https://secure.payu.in is also permitted without CORS error
+                mockMvc.perform(get("/api/v1/payments/payu/callback")
+                                .header(HttpHeaders.ORIGIN, "https://secure.payu.in")
+                                .param("status", "failure")
+                                .param("txnid", txnid2)
+                                .param("udf1", directOrderNo)
+                                .param("hash", failCallbackHash))
+                                .andExpect(status().isFound());
+
+                assertThat(orderRepository.findById(directOrderId).orElseThrow().getStatus())
+                                .isEqualTo(OrderStatus.PENDING);
+
+                // Simulate Razorpay attempt failing on the same order, then switching back to PayU and succeeding!
+                String rzpAttemptId = "order_test_rzpbeforepayu_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+                paymentRepository.save(Payment.builder()
+                                .order(orderRepository.findById(directOrderId).orElseThrow())
+                                .provider("RAZORPAY")
+                                .providerOrderId(rzpAttemptId)
+                                .amount(new BigDecimal(amountFormatted))
+                                .currency("INR")
+                                .status(PaymentAttemptStatus.CREATED)
+                                .build());
+                mockMvc.perform(post("/api/v1/payments/failure")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                                new RazorpayPaymentService.PaymentFailureReport(
+                                                                directOrderId, rzpAttemptId, "pay_rzp_fail",
+                                                                "Razorpay gateway declined", false))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.status").value("PENDING"));
+
+                // Customer clicks "Pay with PayU Instead" on the SAME order -> new PayU attempt initiated
+                MvcResult switchPayuRes = mockMvc.perform(post("/api/v1/payments/payu/initiate")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"orderId\":" + directOrderId + ",\"retry\":true}"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                String txnid3 = objectMapper.readTree(switchPayuRes.getResponse().getContentAsString())
+                                .get("txnid").asText();
+
+                // PayU posts verified success callback with Origin: null (3DS cross-origin redirect) -> 302 redirect to /pages/order-confirmation.html
+                String successCallbackHash = com.timecraft.payment.service.PayuPaymentService.computeResponseHash(
+                                "Vx6TKHBnxErLEvbrTmLZGMb4eVEAtyQM", "success",
+                                "", "", "", "", udf1, customerEmail, firstname, productinfo, amountFormatted, txnid3,
+                                "otqqIX", null);
+                mockMvc.perform(post("/api/v1/payments/payu/callback")
+                                .header(HttpHeaders.ORIGIN, "null")
+                                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                                .param("status", "success")
+                                .param("txnid", txnid3)
+                                .param("mihpayid", "40399371559901")
+                                .param("mode", "UPI")
+                                .param("amount", amountFormatted)
+                                .param("productinfo", productinfo)
+                                .param("firstname", firstname)
+                                .param("email", customerEmail)
+                                .param("udf1", udf1)
+                                .param("key", "otqqIX")
+                                .param("hash", successCallbackHash))
+                                .andExpect(status().isFound())
+                                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                                                .string(HttpHeaders.LOCATION,
+                                                                "/pages/order-confirmation.html?order=" + directOrderNo + "&method=PAYU"));
+
+                // Idempotent repeat callback from Origin: http://localhost:8080 also returns 302 cleanly
+                mockMvc.perform(post("/api/v1/payments/payu/callback")
+                                .header(HttpHeaders.ORIGIN, "http://localhost:8080")
+                                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                                .param("status", "success")
+                                .param("txnid", txnid3)
+                                .param("mihpayid", "40399371559901")
+                                .param("mode", "UPI")
+                                .param("amount", amountFormatted)
+                                .param("productinfo", productinfo)
+                                .param("firstname", firstname)
+                                .param("email", customerEmail)
+                                .param("udf1", udf1)
+                                .param("key", "otqqIX")
+                                .param("hash", successCallbackHash))
+                                .andExpect(status().isFound());
+
+                Order confirmedOrder = orderRepository.findById(directOrderId).orElseThrow();
+                assertThat(confirmedOrder.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+                assertThat(confirmedOrder.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+                assertThat(confirmedOrder.getPaymentMethod()).isEqualTo(com.timecraft.order.entity.PaymentMethod.PAYU);
+                assertThat(inventoryService.getAvailableForVariant(variantId)).isEqualTo(stockBefore - 1);
+
+                // Verify ONLY 1 order exists for this customer (zero duplicate orders across retries & gateway switches)
+                MvcResult customerOrdersRes = mockMvc.perform(get("/api/v1/orders")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                assertThat(objectMapper.readTree(customerOrdersRes.getResponse().getContentAsString())
+                                .get("totalElements").asInt()).isEqualTo(1);
+        }
+
+        @Test
+        @org.junit.jupiter.api.Order(11)
+        @DisplayName("27. Dynamic Delivery Time Estimation: PIN Zones, Stock Conditions, Holidays, Multi-Warehouse Cart & Admin Panel")
+        void dynamicDeliveryEstimationAndAdminManagement() throws Exception {
+                // Pick two distinct in-stock variants from different products
+                List<ProductVariant> stockedVariants = variantRepository.findAll().stream()
+                                .filter(v -> inventoryService.getAvailableForVariant(v.getId()) >= 2)
+                                .toList();
+                ProductVariant v1 = stockedVariants.get(0);
+                ProductVariant v2 = stockedVariants.stream()
+                                .filter(v -> !v.getProduct().getId().equals(v1.getProduct().getId()))
+                                .findFirst().orElseThrow();
+                Long p1Id = v1.getProduct().getId();
+                Long p2Id = v2.getProduct().getId();
+
+                // 1. Product listing & detail include deliveryEstimate
+                mockMvc.perform(get("/api/v1/products").param("size", "5"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.content[0].deliveryEstimate.shortLabel").isNotEmpty());
+
+                mockMvc.perform(get("/api/v1/products/" + p1Id))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.deliveryEstimate.shortLabel").isNotEmpty())
+                                .andExpect(jsonPath("$.deliveryEstimate.warehouseName").isNotEmpty());
+
+                // 2. PIN code zones: Local, Same-State, Other-State, Remote, Unserviceable
+                mockMvc.perform(get("/api/v1/delivery/estimate")
+                                .param("productId", String.valueOf(p1Id))
+                                .param("variantId", String.valueOf(v1.getId()))
+                                .param("pinCode", "560001"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.serviceable").value(true))
+                                .andExpect(jsonPath("$.available").value(true))
+                                .andExpect(jsonPath("$.zoneType").value("LOCAL"))
+                                .andExpect(jsonPath("$.shippingDaysMin").value(1))
+                                .andExpect(jsonPath("$.shippingDaysMax").value(3))
+                                .andExpect(jsonPath("$.expectedDispatchDate").isNotEmpty())
+                                .andExpect(jsonPath("$.estimatedDeliveryStartDate").isNotEmpty())
+                                .andExpect(jsonPath("$.estimatedDeliveryEndDate").isNotEmpty());
+
+                mockMvc.perform(get("/api/v1/delivery/estimate")
+                                .param("productId", String.valueOf(p1Id))
+                                .param("pinCode", "570001"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.serviceable").value(true))
+                                .andExpect(jsonPath("$.zoneType").value("SAME_STATE"))
+                                .andExpect(jsonPath("$.shippingDaysMin").value(2))
+                                .andExpect(jsonPath("$.shippingDaysMax").value(5));
+
+                mockMvc.perform(get("/api/v1/delivery/estimate")
+                                .param("productId", String.valueOf(p1Id))
+                                .param("pinCode", "302001"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.serviceable").value(true))
+                                .andExpect(jsonPath("$.zoneType").value("OTHER_STATE"))
+                                .andExpect(jsonPath("$.shippingDaysMin").value(3))
+                                .andExpect(jsonPath("$.shippingDaysMax").value(7));
+
+                mockMvc.perform(get("/api/v1/delivery/estimate")
+                                .param("productId", String.valueOf(p1Id))
+                                .param("pinCode", "744101"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.serviceable").value(true))
+                                .andExpect(jsonPath("$.zoneType").value("REMOTE"))
+                                .andExpect(jsonPath("$.shippingDaysMin").value(6))
+                                .andExpect(jsonPath("$.shippingDaysMax").value(10));
+
+                mockMvc.perform(get("/api/v1/delivery/estimate")
+                                .param("productId", String.valueOf(p1Id))
+                                .param("pinCode", "999999"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.serviceable").value(false));
+
+                // 3. Out-of-stock condition
+                Inventory inv2 = inventoryRepository.findByVariantId(v2.getId()).orElseThrow();
+                int origOnHand2 = inv2.getQuantityOnHand();
+                int origRes2 = inv2.getQuantityReserved();
+                inv2.setQuantityOnHand(0);
+                inv2.setQuantityReserved(0);
+                inv2 = inventoryRepository.save(inv2);
+
+                mockMvc.perform(get("/api/v1/delivery/estimate")
+                                .param("productId", String.valueOf(p2Id))
+                                .param("variantId", String.valueOf(v2.getId()))
+                                .param("pinCode", "560001"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.available").value(false))
+                                .andExpect(jsonPath("$.stockCondition").value("OUT_OF_STOCK"));
+
+                // Restore v2 stock
+                inv2.setQuantityOnHand(origOnHand2);
+                inv2.setQuantityReserved(origRes2);
+                inventoryRepository.save(inv2);
+
+                // 4. Admin API: list warehouses, configure PRE_ORDER & MADE_TO_ORDER, and multi-warehouse cart
+                MvcResult whRes = mockMvc.perform(get("/api/v1/admin/delivery/warehouses")
+                                .with(user("admin@timecraft.test").roles("ADMIN")))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                JsonNode whList = objectMapper.readTree(whRes.getResponse().getContentAsString());
+                Long mumbaiWhId = null;
+                for (JsonNode w : whList) {
+                        if ("MUM-ATELIER".equals(w.get("code").asText())) {
+                                mumbaiWhId = w.get("id").asLong();
+                        }
+                }
+                assertThat(mumbaiWhId).isNotNull();
+
+                // Assign product 2 to Mumbai Atelier as PRE_ORDER first
+                java.time.LocalDate releaseDate = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")).plusDays(12);
+                String preOrderJson = """
+                                {
+                                  "warehouseId": %d,
+                                  "fulfillmentType": "PRE_ORDER",
+                                  "preorderReleaseDate": "%s",
+                                  "specialOrderNote": "Limited Geneva allocation"
+                                }
+                                """.formatted(mumbaiWhId, releaseDate);
+                mockMvc.perform(put("/api/v1/admin/delivery/products/" + p2Id)
+                                .with(user("admin@timecraft.test").roles("ADMIN"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(preOrderJson))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.fulfillmentType").value("PRE_ORDER"));
+
+                mockMvc.perform(get("/api/v1/delivery/estimate")
+                                .param("productId", String.valueOf(p2Id))
+                                .param("pinCode", "400001"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.stockCondition").value("PRE_ORDER"))
+                                .andExpect(jsonPath("$.preorderReleaseDate").value(releaseDate.toString()))
+                                .andExpect(jsonPath("$.warehouseCode").value("MUM-ATELIER"));
+
+                // Switch product 2 to MADE_TO_ORDER on Mumbai Atelier
+                String mtoJson = """
+                                {
+                                  "warehouseId": %d,
+                                  "fulfillmentType": "MADE_TO_ORDER",
+                                  "processingDaysMin": 8,
+                                  "processingDaysMax": 12
+                                }
+                                """.formatted(mumbaiWhId);
+                mockMvc.perform(put("/api/v1/admin/delivery/products/" + p2Id)
+                                .with(user("admin@timecraft.test").roles("ADMIN"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mtoJson))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.fulfillmentType").value("MADE_TO_ORDER"));
+
+                mockMvc.perform(get("/api/v1/delivery/estimate")
+                                .param("productId", String.valueOf(p2Id))
+                                .param("pinCode", "560001"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.stockCondition").value("MADE_TO_ORDER"))
+                                .andExpect(jsonPath("$.fulfillmentType").value("MADE_TO_ORDER"))
+                                .andExpect(jsonPath("$.processingDaysMin").value(8))
+                                .andExpect(jsonPath("$.totalBusinessDaysMin").value(9))
+                                .andExpect(jsonPath("$.totalBusinessDaysMax").value(15));
+
+                // 5. Holiday exclusion test: add holiday and ensure dispatch date never lands on it
+                java.time.LocalDate testHoliday = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")).plusDays(1);
+                if (testHoliday.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
+                        testHoliday = testHoliday.plusDays(1);
+                }
+                MvcResult holRes = mockMvc.perform(post("/api/v1/admin/delivery/holidays")
+                                .with(user("admin@timecraft.test").roles("ADMIN"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"holidayDate\":\"" + testHoliday + "\",\"name\":\"Vault Audit Holiday\"}"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                Long holId = objectMapper.readTree(holRes.getResponse().getContentAsString()).get("id").asLong();
+
+                MvcResult afterHolEst = mockMvc.perform(get("/api/v1/delivery/estimate")
+                                .param("productId", String.valueOf(p1Id))
+                                .param("pinCode", "560001"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                String dispatchDateStr = objectMapper.readTree(afterHolEst.getResponse().getContentAsString())
+                                .get("expectedDispatchDate").asText();
+                assertThat(dispatchDateStr).isNotEqualTo(testHoliday.toString());
+
+                // Clean up test holiday
+                mockMvc.perform(delete("/api/v1/admin/delivery/holidays/" + holId)
+                                .with(user("admin@timecraft.test").roles("ADMIN"))
+                                .with(csrf()))
+                                .andExpect(status().isOk());
+
+                // 6. Multi-warehouse cart check (p1 from BLR-VAULT, p2 from MUM-ATELIER)
+                String token = registerAndGetAccessToken("delivery-test@timecraft.test");
+                mockMvc.perform(post("/api/v1/cart/items")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AddCartItemRequest(v1.getId(), 1))))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.items[0].deliveryEstimate.shortLabel").isNotEmpty());
+
+                mockMvc.perform(post("/api/v1/cart/items")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new AddCartItemRequest(v2.getId(), 1))))
+                                .andExpect(status().isOk());
+
+                mockMvc.perform(get("/api/v1/delivery/cart-estimates")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .param("pinCode", "560001"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.splitWarehouseShipment").value(true))
+                                .andExpect(jsonPath("$.warehouseCount").value(2))
+                                .andExpect(jsonPath("$.items.length()").value(2));
+
+                // 7. Admin Delivery Management Page renders cleanly
+                mockMvc.perform(get("/admin/delivery")
+                                .with(user("admin@timecraft.test").roles("ADMIN")))
+                                .andExpect(status().isOk());
+        }
+
+        private String registerAndGetAccessToken(String email) throws Exception {
+                RegisterRequest reg = new RegisterRequest("Test", "Collector", email, "WatchPass123", "+91 9876543210");
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(reg)))
+                                .andExpect(status().isCreated());
+                User u = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+                EmailVerificationToken otpToken = emailTokenRepository
+                                .findTopByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(u.getId()).orElseThrow();
+                otpToken.setTokenHash(
+                                com.timecraft.authentication.service.AuthenticationService.hashOtp(email, "654321"));
+                emailTokenRepository.save(otpToken);
+
+                MvcResult verifyRes = mockMvc.perform(post("/api/v1/auth/verify-otp")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"email\":\"" + email + "\",\"otp\":\"654321\"}"))
+                                .andExpect(status().isOk())
+                                .andReturn();
+                return objectMapper.readTree(verifyRes.getResponse().getContentAsString()).get("accessToken").asText();
+        }
+
+        private Long createIndianAddress(String token) throws Exception {
+                AddressRequest req = new AddressRequest(
+                                "Aarav Mehta", "9876543210", "12 Lavelle Road", "Floor 3", "Near Cubbon Park",
+                                "Bengaluru", "Karnataka", "560001", "IN", AddressType.HOME, true);
+                MvcResult res = mockMvc.perform(post("/api/v1/addresses")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(req)))
+                                .andExpect(status().isCreated())
+                                .andReturn();
+                return objectMapper.readTree(res.getResponse().getContentAsString()).get("id").asLong();
+        }
+
+        private Order createOrderDirectly(Long userId, Long addressId, ProductVariant variant, int qty, String idemp) {
+                String token = jwtForUser(userId);
+                try {
+                        mockMvc.perform(post("/api/v1/cart/items")
+                                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(
+                                                        new AddCartItemRequest(variant.getId(), qty))))
+                                        .andExpect(status().isOk());
+                        var dto = orderService.placeOrder(userId, new PlaceOrderRequest(addressId, null, null, idemp),
+                                        idemp);
+                        return orderRepository.findById(dto.id()).orElseThrow();
+                } catch (Exception e) {
+                        throw new RuntimeException(e);
+                }
+        }
+
+        @Autowired
+        private com.timecraft.security.JwtService jwtService;
+
+        private String jwtForUser(Long userId) {
+                User u = userRepository.findById(userId).orElseThrow();
+                return jwtService.generateCustomerAccessToken(u);
+        }
 }

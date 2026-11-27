@@ -14,6 +14,9 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -166,7 +169,7 @@ public class NotificationService {
                 "/pages/order-details.html?order=" + order.getOrderNumber());
 
         String link = properties.frontendBaseUrl() + "/pages/order-details.html?order=" + order.getOrderNumber();
-        String invoiceHtml = invoicePdfService.buildHtmlInvoice(order, link);
+        String invoiceHtml = invoicePdfService.buildHtmlInvoice(order, link, properties.frontendBaseUrl());
         byte[] pdfBytes = null;
         try {
             pdfBytes = invoicePdfService.generateInvoice(order);
@@ -179,10 +182,25 @@ public class NotificationService {
                     order.getCustomerEmail(), order.getOrderNumber(), order.getGrandTotal(),
                     pdfBytes != null ? pdfBytes.length : 0);
         }
+        Resource inlineGif = resolveOrderConfirmedGif();
         dispatchEmailWithAttachment(order.getUser(), order.getCustomerEmail(),
                 "TimeCraft Tax Invoice & Order Confirmation · " + order.getOrderNumber(),
                 "ORDER_INVOICE_CONFIRMATION", invoiceHtml, "ORDER", order.getId(),
-                pdfFilename, pdfBytes, "application/pdf");
+                pdfFilename, pdfBytes, "application/pdf",
+                "orderConfirmedGif", inlineGif, "image/gif");
+    }
+
+    private Resource resolveOrderConfirmedGif() {
+        ClassPathResource cp = new ClassPathResource("static/images/order-confirmed.gif");
+        if (cp.exists()) {
+            return cp;
+        }
+        FileSystemResource fsDev = new FileSystemResource("../frontend/images/order-confirmed.gif");
+        if (fsDev.exists()) {
+            return fsDev;
+        }
+        FileSystemResource fsRoot = new FileSystemResource("frontend/images/order-confirmed.gif");
+        return fsRoot.exists() ? fsRoot : null;
     }
 
     @Transactional
@@ -230,12 +248,14 @@ public class NotificationService {
 
     private boolean dispatchEmail(User user, String recipient, String subject, String template,
                                   String html, String relatedType, Long relatedId) {
-        return dispatchEmailWithAttachment(user, recipient, subject, template, html, relatedType, relatedId, null, null, null);
+        return dispatchEmailWithAttachment(user, recipient, subject, template, html, relatedType, relatedId,
+                null, null, null, null, null, null);
     }
 
     private boolean dispatchEmailWithAttachment(User user, String recipient, String subject, String template,
                                                 String html, String relatedType, Long relatedId,
-                                                String attachmentName, byte[] attachmentBytes, String attachmentMime) {
+                                                String attachmentName, byte[] attachmentBytes, String attachmentMime,
+                                                String inlineCid, Resource inlineResource, String inlineMime) {
         EmailLog logEntry = EmailLog.builder()
                 .user(user)
                 .recipient(recipient)
@@ -255,12 +275,19 @@ public class NotificationService {
         boolean sent = false;
         try {
             boolean hasAttachment = attachmentName != null && attachmentBytes != null && attachmentBytes.length > 0;
+            boolean hasInline = inlineCid != null && inlineResource != null && inlineResource.exists();
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, hasAttachment, StandardCharsets.UTF_8.name());
+            int multipartMode = (hasAttachment || hasInline)
+                    ? MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED
+                    : MimeMessageHelper.MULTIPART_MODE_NO;
+            MimeMessageHelper helper = new MimeMessageHelper(message, multipartMode, StandardCharsets.UTF_8.name());
             helper.setFrom(properties.mail().from());
             helper.setTo(recipient);
             helper.setSubject(subject);
             helper.setText(html, true);
+            if (hasInline) {
+                helper.addInline(inlineCid, inlineResource, inlineMime != null ? inlineMime : "image/gif");
+            }
             if (hasAttachment) {
                 helper.addAttachment(attachmentName, new ByteArrayResource(attachmentBytes),
                         attachmentMime != null ? attachmentMime : "application/pdf");
@@ -283,19 +310,24 @@ public class NotificationService {
         return """
                 <!DOCTYPE html>
                 <html lang="en">
-                <body style="margin:0;padding:32px;background:#FAF9F6;color:#1A1A1A;font-family:'DM Sans',Helvetica,Arial,sans-serif;">
-                  <div style="max-width:560px;margin:0 auto;background:#FFFFFF;border:1px solid #E5E2DC;padding:40px;">
-                    <div style="font-family:Georgia,serif;font-size:22px;letter-spacing:0.12em;text-transform:uppercase;border-bottom:1px solid #E5E2DC;padding-bottom:16px;margin-bottom:28px;">
-                      TIMECRAFT
+                <body style="margin:0;padding:28px 14px;background:#F4F1EA;color:#141311;font-family:'DM Sans',Helvetica,Arial,sans-serif;">
+                  <div style="max-width:580px;margin:0 auto;background:#FFFFFF;border:1px solid #E5E2DC;">
+                    <div style="background:#141311;padding:22px 34px;border-bottom:3px solid #B08D57;">
+                      <div style="font-size:10px;letter-spacing:2.5px;color:#DFC28C;text-transform:uppercase;margin-bottom:4px;">Fine Horology · Client Concierge</div>
+                      <div style="font-family:Georgia,serif;font-size:24px;letter-spacing:0.14em;text-transform:uppercase;color:#FAF9F6;">TIMECRAFT</div>
                     </div>
-                    <h1 style="font-family:Georgia,serif;font-weight:400;font-size:24px;margin:0 0 16px;">%s</h1>
-                    <p style="font-size:15px;line-height:1.6;margin:0 0 12px;">%s</p>
-                    <p style="font-size:15px;line-height:1.6;color:#4A4945;margin:0 0 28px;">%s</p>
-                    <p style="margin:0 0 28px;">
-                      <a href="%s" style="display:inline-block;background:#1A1A1A;color:#FAF9F6;text-decoration:none;padding:12px 24px;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;">%s</a>
-                    </p>
-                    <div style="border-top:1px solid #E5E2DC;padding-top:16px;font-size:12px;color:#7A776E;">
-                      TimeCraft Fine Horology · Complimentary insured delivery
+                    <div style="padding:32px 34px;">
+                      <h1 style="font-family:Georgia,serif;font-weight:400;font-size:24px;margin:0 0 14px;color:#141311;">%s</h1>
+                      <p style="font-size:15px;line-height:1.6;margin:0 0 12px;color:#141311;">%s</p>
+                      <p style="font-size:15px;line-height:1.65;color:#4A4945;margin:0 0 26px;">%s</p>
+                      <p style="margin:0 0 28px;">
+                        <a href="%s" style="display:inline-block;background:#141311;color:#FAF9F6;border:1px solid #B08D57;text-decoration:none;padding:12px 24px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;">%s</a>
+                      </p>
+                      <div style="border-top:1px solid #E5E2DC;padding-top:18px;font-size:12px;color:#6E6B64;">
+                        <div style="font-family:Georgia,serif;font-size:15px;color:#141311;">Goutam Gurjar</div>
+                        <div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:#B08D57;margin-bottom:6px;">Founder, TimeCraft</div>
+                        TimeCraft Fine Horology · Complimentary insured delivery
+                      </div>
                     </div>
                   </div>
                 </body>

@@ -1,5 +1,6 @@
 package com.timecraft.product.dto;
 
+import com.timecraft.delivery.dto.DeliveryDtos.DeliveryEstimateDto;
 import com.timecraft.product.entity.MovementType;
 import com.timecraft.product.entity.ProductStatus;
 import com.timecraft.product.entity.WatchGender;
@@ -107,7 +108,8 @@ public final class ProductDtos {
             int reviewCount,
             int totalAvailableStock,
             Long defaultVariantId,
-            String primaryImageUrl
+            String primaryImageUrl,
+            DeliveryEstimateDto deliveryEstimate
     ) {
     }
 
@@ -148,7 +150,8 @@ public final class ProductDtos {
             List<VariantDto> variants,
             List<ImageDto> images,
             List<AttributeDto> attributes,
-            Instant createdAt
+            Instant createdAt,
+            DeliveryEstimateDto deliveryEstimate
     ) {
     }
 

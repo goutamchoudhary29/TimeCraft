@@ -5,7 +5,7 @@
 <div class="tc-shell">
     <aside th:replace="~{admin/fragments :: sidebar('payments')}"></aside>
     <div class="tc-main">
-        <header th:replace="~{admin/fragments :: topbar('Razorpay Payment Monitoring')}"></header>
+        <header th:replace="~{admin/fragments :: topbar('Gateway Payment Monitoring')}"></header>
         <main class="tc-content">
             <div th:replace="~{admin/fragments :: alerts}"></div>
             <div class="tc-card">
@@ -14,8 +14,9 @@
                         <thead>
                         <tr>
                             <th>Order #</th>
-                            <th>Razorpay Order ID</th>
-                            <th>Razorpay Payment ID</th>
+                            <th>Provider</th>
+                            <th>Gateway Order / Txn ID</th>
+                            <th>Gateway Payment ID</th>
                             <th>Method</th>
                             <th>Status</th>
                             <th class="text-end">Amount</th>
@@ -25,10 +26,11 @@
                         </thead>
                         <tbody>
                         <tr th:if="${#lists.isEmpty(payments.content)}">
-                            <td colspan="8" class="text-center text-muted py-3">No payment attempts recorded yet.</td>
+                            <td colspan="9" class="text-center text-muted py-3">No payment attempts recorded yet.</td>
                         </tr>
                         <tr th:each="p : ${payments.content}">
                             <td><a th:href="@{'/admin/orders/' + ${p.orderId}}" class="num fw-semibold text-decoration-none" th:text="${p.orderNumber}">TC-1</a></td>
+                            <td><span class="badge-tc" th:text="${p.provider}">RAZORPAY</span></td>
                             <td class="num small" th:text="${p.providerOrderId}">order_123</td>
                             <td class="num small" th:text="${p.providerPaymentId ?: '—'}">pay_123</td>
                             <td th:text="${p.method ?: 'RAZORPAY'}">RAZORPAY</td>

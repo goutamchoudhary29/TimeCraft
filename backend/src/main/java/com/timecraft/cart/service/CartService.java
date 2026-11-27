@@ -1,5 +1,7 @@
 package com.timecraft.cart.service;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.timecraft.admin.service.StoreConfigService;
 import com.timecraft.authentication.entity.User;
 import com.timecraft.authentication.repository.UserRepository;
@@ -11,6 +13,8 @@ import com.timecraft.cart.service.PriceBreakdownCalculator.TotalsBreakdown;
 import com.timecraft.common.util.Money;
 import com.timecraft.common.util.TokenUtils;
 import com.timecraft.coupon.service.CouponService;
+import com.timecraft.delivery.dto.DeliveryDtos.DeliveryEstimateDto;
+import com.timecraft.delivery.service.DeliveryEstimationService;
 import com.timecraft.exception.BusinessException;
 import com.timecraft.exception.ResourceNotFoundException;
 import com.timecraft.inventory.service.InventoryService;
@@ -44,6 +48,7 @@ public class CartService {
     private final ProductVariantRepository variantRepository;
     private final UserRepository userRepository;
     private final InventoryService inventoryService;
+    private final DeliveryEstimationService deliveryEstimationService;
     private final CouponService couponService;
     private final PriceBreakdownCalculator calculator;
     private final StoreConfigService storeConfigService;
@@ -52,12 +57,28 @@ public class CartService {
             @NotNull Long variantId,
             @Min(1) int quantity
     ) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public AddCartItemRequest(
+                @JsonProperty("variantId") Long variantId,
+                @JsonProperty("quantity") int quantity
+        ) {
+            this.variantId = variantId;
+            this.quantity = quantity;
+        }
     }
 
     public record UpdateCartItemRequest(@Min(1) int quantity) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public UpdateCartItemRequest(@JsonProperty("quantity") int quantity) {
+            this.quantity = quantity;
+        }
     }
 
     public record ApplyCouponRequest(@NotBlank String code) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public ApplyCouponRequest(@JsonProperty("code") String code) {
+            this.code = code;
+        }
     }
 
     public record CartItemDto(
@@ -66,6 +87,9 @@ public class CartService {
             String productName,
             String productSlug,
             String brandName,
+            String modelName,
+            String movementType,
+            BigDecimal caseDiameterMm,
             Long variantId,
             String variantSku,
             String variantName,
@@ -74,8 +98,10 @@ public class CartService {
             BigDecimal sellingUnitPrice,
             int quantity,
             int availableStock,
+            int maxOrderQuantity,
             boolean available,
-            BigDecimal lineSubtotal
+            BigDecimal lineSubtotal,
+            DeliveryEstimateDto deliveryEstimate
     ) {
     }
 
@@ -324,6 +350,7 @@ public class CartService {
     }
 
     private CartDto toCartDto(Cart cart, String rawGuestToken, Long userId) {
+        int maxPerItem = storeConfigService.getInt("checkout.max_quantity_per_item", 5);
         List<Long> variantIds = cart.getItems().stream().map(i -> i.getVariant().getId()).toList();
         Map<Long, Integer> stockMap = inventoryService.getAvailableByVariantIds(variantIds);
 
@@ -335,6 +362,7 @@ public class CartService {
             ProductVariant v = item.getVariant();
             Product p = v.getProduct();
             int availableStock = stockMap.getOrDefault(v.getId(), 0);
+            int maxOrderQuantity = Math.min(maxPerItem, Math.max(0, availableStock));
             boolean available = isPurchasable(v) && availableStock >= item.getQuantity();
             BigDecimal unitSelling = Money.of(v.effectiveSellingPrice());
             BigDecimal unitRegular = Money.of(v.effectiveRegularPrice());
@@ -352,6 +380,9 @@ public class CartService {
                     p.getName(),
                     p.getSlug(),
                     p.getBrand().getName(),
+                    p.getModelName(),
+                    p.getMovementType() != null ? p.getMovementType().name() : null,
+                    p.getCaseDiameterMm(),
                     v.getId(),
                     v.getSku(),
                     v.getName(),
@@ -360,8 +391,10 @@ public class CartService {
                     unitSelling,
                     item.getQuantity(),
                     availableStock,
+                    maxOrderQuantity,
                     available,
-                    lineSubtotal
+                    lineSubtotal,
+                    deliveryEstimationService.estimateForProduct(p, availableStock, null)
             ));
         }
 

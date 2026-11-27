@@ -52,6 +52,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('ctName').value = (u.firstName + ' ' + u.lastName).trim();
         document.getElementById('ctEmail').value = u.email || '';
     }
+    const orderParam = new URLSearchParams(window.location.search).get('order') || '';
+    if (orderParam) {
+        document.getElementById('ctOrder').value = orderParam;
+        document.getElementById('ctSubject').value = 'Concierge payment assistance for Order ' + orderParam;
+    }
     document.getElementById('contactForm').addEventListener('submit', async e => {
         e.preventDefault();
         try {

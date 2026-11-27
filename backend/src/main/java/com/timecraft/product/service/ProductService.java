@@ -8,6 +8,7 @@ import com.timecraft.category.service.CategoryService;
 import com.timecraft.common.dto.PageResponse;
 import com.timecraft.common.util.Money;
 import com.timecraft.common.util.SlugUtils;
+import com.timecraft.delivery.service.DeliveryEstimationService;
 import com.timecraft.exception.BusinessException;
 import com.timecraft.exception.ResourceNotFoundException;
 import com.timecraft.inventory.service.InventoryService;
@@ -60,6 +61,7 @@ public class ProductService {
     private final BrandService brandService;
     private final CategoryService categoryService;
     private final InventoryService inventoryService;
+    private final DeliveryEstimationService deliveryEstimationService;
     private final CloudinaryService cloudinaryService;
     private final AuditLogService auditLogService;
 
@@ -522,7 +524,8 @@ public class ProductService {
                 p.getReviewCount(),
                 totalStock,
                 defaultVariantId,
-                p.getPrimaryImageUrl()
+                p.getPrimaryImageUrl(),
+                deliveryEstimationService.estimateForProduct(p, totalStock, null)
         );
     }
 
@@ -581,7 +584,8 @@ public class ProductService {
                 variantDtos,
                 imageDtos,
                 attrDtos,
-                p.getCreatedAt()
+                p.getCreatedAt(),
+                deliveryEstimationService.estimateForProduct(p, totalStock, null)
         );
     }
 

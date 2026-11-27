@@ -12,6 +12,13 @@ import com.timecraft.coupon.entity.DiscountType;
 import com.timecraft.coupon.service.CouponService;
 import com.timecraft.coupon.service.CouponService.CouponRequest;
 import com.timecraft.customer.service.CustomerService;
+import com.timecraft.delivery.dto.DeliveryDtos.HolidayRequest;
+import com.timecraft.delivery.dto.DeliveryDtos.PinRuleRequest;
+import com.timecraft.delivery.dto.DeliveryDtos.ProductDeliveryConfigRequest;
+import com.timecraft.delivery.dto.DeliveryDtos.WarehouseRequest;
+import com.timecraft.delivery.entity.DeliveryZoneType;
+import com.timecraft.delivery.entity.FulfillmentType;
+import com.timecraft.delivery.service.DeliveryEstimationService;
 import com.timecraft.inventory.entity.InventoryTransactionType;
 import com.timecraft.inventory.service.InventoryService;
 import com.timecraft.inventory.service.InventoryService.InventoryAdjustmentRequest;
@@ -77,6 +84,7 @@ public class AdminViewController {
     private final ReturnAndRefundService returnService;
     private final CustomerService customerService;
     private final StoreConfigService storeConfigService;
+    private final DeliveryEstimationService deliveryEstimationService;
     private final AuditLogService auditLogService;
 
     @GetMapping("/login")
@@ -802,5 +810,134 @@ public class AdminViewController {
         storeConfigService.updateSettings(params);
         ra.addFlashAttribute("successMessage", "Store configuration updated");
         return "redirect:/admin/settings";
+    }
+
+    @GetMapping("/delivery")
+    public String deliverySettings(Model model) {
+        model.addAttribute("activeNav", "delivery");
+        model.addAttribute("deliverySettings", storeConfigService.listAllSettings().stream()
+                .filter(s -> "DELIVERY".equalsIgnoreCase(s.getSettingGroup()))
+                .toList());
+        model.addAttribute("warehouses", deliveryEstimationService.listWarehouses());
+        model.addAttribute("pinRules", deliveryEstimationService.listPinRules());
+        model.addAttribute("holidays", deliveryEstimationService.listHolidays());
+        model.addAttribute("productConfigs", deliveryEstimationService.listProductDeliveryConfigs());
+        model.addAttribute("zoneTypes", DeliveryZoneType.values());
+        model.addAttribute("fulfillmentTypes", FulfillmentType.values());
+        return "admin/delivery";
+    }
+
+    @PostMapping("/delivery/global")
+    public String updateGlobalDelivery(@RequestParam Map<String, String> params, RedirectAttributes ra) {
+        params.remove("_csrf");
+        deliveryEstimationService.updateGlobalDeliverySettings(params);
+        ra.addFlashAttribute("successMessage", "Global delivery estimation settings updated");
+        return "redirect:/admin/delivery";
+    }
+
+    @PostMapping("/delivery/warehouses")
+    public String saveWarehouse(
+            @RequestParam(required = false) Long id,
+            @RequestParam String code,
+            @RequestParam String name,
+            @RequestParam String city,
+            @RequestParam String state,
+            @RequestParam String pinCode,
+            @RequestParam(required = false) String pinPrefixLocal,
+            @RequestParam(required = false) String pinPrefixState,
+            @RequestParam(defaultValue = "false") boolean defaultWarehouse,
+            @RequestParam(defaultValue = "true") boolean active,
+            RedirectAttributes ra
+    ) {
+        try {
+            deliveryEstimationService.saveWarehouse(id, new WarehouseRequest(
+                    code, name, city, state, pinCode, pinPrefixLocal, pinPrefixState, defaultWarehouse, active));
+            ra.addFlashAttribute("successMessage", "Dispatch warehouse saved");
+        } catch (Exception ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/admin/delivery";
+    }
+
+    @PostMapping("/delivery/pin-rules")
+    public String savePinRule(
+            @RequestParam String pinPattern,
+            @RequestParam DeliveryZoneType zoneType,
+            @RequestParam(required = false) String courierName,
+            @RequestParam(defaultValue = "true") boolean serviceable,
+            @RequestParam(required = false) Integer minDaysOverride,
+            @RequestParam(required = false) Integer maxDaysOverride,
+            @RequestParam(required = false) String notes,
+            RedirectAttributes ra
+    ) {
+        try {
+            deliveryEstimationService.savePinRule(new PinRuleRequest(
+                    pinPattern, zoneType, courierName, serviceable, minDaysOverride, maxDaysOverride, notes));
+            ra.addFlashAttribute("successMessage", "PIN code rule saved");
+        } catch (Exception ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/admin/delivery";
+    }
+
+    @PostMapping("/delivery/pin-rules/{id}/delete")
+    public String deletePinRule(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            deliveryEstimationService.deletePinRule(id);
+            ra.addFlashAttribute("successMessage", "PIN code rule deleted");
+        } catch (Exception ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/admin/delivery";
+    }
+
+    @PostMapping("/delivery/holidays")
+    public String saveHoliday(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate holidayDate,
+            @RequestParam String name,
+            RedirectAttributes ra
+    ) {
+        try {
+            deliveryEstimationService.saveHoliday(new HolidayRequest(holidayDate, name));
+            ra.addFlashAttribute("successMessage", "Public holiday saved");
+        } catch (Exception ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/admin/delivery";
+    }
+
+    @PostMapping("/delivery/holidays/{id}/delete")
+    public String deleteHoliday(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            deliveryEstimationService.deleteHoliday(id);
+            ra.addFlashAttribute("successMessage", "Holiday removed");
+        } catch (Exception ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/admin/delivery";
+    }
+
+    @PostMapping("/delivery/products/{productId}")
+    public String saveProductDelivery(
+            @PathVariable Long productId,
+            @RequestParam(required = false) Long warehouseId,
+            @RequestParam FulfillmentType fulfillmentType,
+            @RequestParam(required = false) Integer processingDaysMin,
+            @RequestParam(required = false) Integer processingDaysMax,
+            @RequestParam(required = false) Integer shippingDaysMinOverride,
+            @RequestParam(required = false) Integer shippingDaysMaxOverride,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate preorderReleaseDate,
+            @RequestParam(required = false) String specialOrderNote,
+            RedirectAttributes ra
+    ) {
+        try {
+            deliveryEstimationService.saveProductDeliveryConfig(productId, new ProductDeliveryConfigRequest(
+                    warehouseId, fulfillmentType, processingDaysMin, processingDaysMax,
+                    shippingDaysMinOverride, shippingDaysMaxOverride, preorderReleaseDate, specialOrderNote));
+            ra.addFlashAttribute("successMessage", "Product delivery configuration updated");
+        } catch (Exception ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/admin/delivery";
     }
 }

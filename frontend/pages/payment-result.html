@@ -6,33 +6,170 @@
     <title>Payment Status · TimeCraft</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/styles.css" rel="stylesheet">
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
 <div id="tcHeader"></div>
-<main class="container py-5" style="max-width:600px;">
-    <div class="tc-panel text-center py-5" id="resultHost"></div>
+<main class="container py-4 py-lg-5" style="max-width:740px;">
+    <div class="tc-panel py-4 px-3 px-md-5" id="resultHost">
+        <div class="text-center py-4 text-muted small">Checking your order &amp; payment reservation…</div>
+    </div>
 </main>
 <div id="tcFooter"></div>
 <script src="/js/app.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
-    await TC.mountChrome();
+    await TC.mountChrome('orders');
     const params = new URLSearchParams(window.location.search);
-    const status = params.get('status') || 'pending';
-    const order = params.get('order') || '';
-    const reason = params.get('reason') || '';
+    let currentStatus = params.get('status') || 'pending';
+    const orderRef = params.get('order') || '';
+    let currentReason = params.get('reason') || '';
+    const host = document.getElementById('resultHost');
+    const maxCodRaw = TC.getMaxCodAmount();
 
-    document.getElementById('resultHost').innerHTML = `
-        <div class="tc-eyebrow mb-2">Payment Status · ${TC.escapeHtml(status.toUpperCase())}</div>
-        <h1 class="tc-serif mb-2">${status === 'success' ? 'Payment Verified' : 'Payment Not Completed'}</h1>
-        <p class="text-muted small mb-4">
-          ${order ? `Order Reference: <strong class="tc-num">${TC.escapeHtml(order)}</strong>.<br>` : ''}
-          ${reason ? TC.escapeHtml(reason) : 'Your stock reservation remains active until the payment expiry time shown on your order details page.'}
-        </p>
-        <div class="d-flex justify-content-center gap-2">
-          ${order ? `<a href="/pages/order-details.html?order=${encodeURIComponent(order)}" class="btn-tc-primary">Inspect Order</a>` : ''}
-          <a href="/pages/orders.html" class="btn-tc-secondary">All Orders</a>
-        </div>`;
+    const exactInr = new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    function fmtMoney(v) {
+        const n = Number(v || 0);
+        return Number.isNaN(n) ? ('₹' + TC.escapeHtml(String(v))) : exactInr.format(n);
+    }
+
+    let orderObj = null;
+    if (orderRef && TC.getUser()) {
+        try {
+            orderObj = await TC.api('/orders/' + encodeURIComponent(orderRef));
+        } catch {}
+    }
+
+    function render() {
+        if (orderObj && (orderObj.status === 'CONFIRMED' || orderObj.paymentStatus === 'PAID')) {
+            const m = orderObj.paymentMethod === 'COD' ? '&method=COD' : '';
+            window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(orderObj.orderNumber)}${m}`;
+            return;
+        }
+
+        const isPendingRecoverable = orderObj && orderObj.status === 'PENDING' && orderObj.paymentStatus !== 'PAID';
+        const codAllowed = isPendingRecoverable && TC.isOrderCodEligible(orderObj.grandTotal, maxCodRaw);
+        const isCancelled = currentStatus === 'cancelled';
+
+        host.innerHTML = `
+          <div class="text-center mb-4">
+            <div class="tc-eyebrow mb-2" style="color:${isCancelled ? '#8F6F3E' : '#A63A3A'};">
+              Payment Status · ${TC.escapeHtml(currentStatus.toUpperCase())}
+            </div>
+            <h1 class="tc-serif mb-2">${currentStatus === 'success' ? 'Payment Verified' : (isCancelled ? 'Payment Window Closed' : 'Payment Could Not Be Completed')}</h1>
+            <p class="text-muted small mx-auto mb-0" style="max-width:540px;">
+              ${orderRef ? `Order Reference: <strong class="tc-num text-dark">${TC.escapeHtml(orderRef)}</strong>${orderObj ? ` · Total: <strong class="tc-price text-dark">${fmtMoney(orderObj.grandTotal)}</strong>` : ''}<br>` : ''}
+              ${currentReason
+                ? TC.escapeHtml(currentReason)
+                : 'Your stock reservation remains active on this order so you can retry payment without creating a duplicate order.'}
+            </p>
+          </div>
+
+          ${isPendingRecoverable ? `
+            <div class="tc-recovery-actions justify-content-center mb-3">
+              <button type="button" id="resRetryBtn" class="btn-tc-primary">
+                Retry via Razorpay · ${fmtMoney(orderObj.grandTotal)}
+              </button>
+              <button type="button" id="resPayuBtn" class="btn-tc-secondary" style="border-color:#1A1A1A;color:#1A1A1A;">
+                Pay with PayU
+              </button>
+              <a href="/pages/order-details.html?order=${encodeURIComponent(orderObj.orderNumber)}" class="btn-tc-secondary">
+                Inspect Order
+              </a>
+            </div>
+
+            ${codAllowed ? `
+              <div class="tc-cod-fallback-card text-start mt-4">
+                <div class="tc-eyebrow mb-1">Safe Cash on Delivery Option</div>
+                <div class="fw-semibold small mb-1">Complete this order with Cash on Delivery (COD)</div>
+                <p class="small text-muted mb-3">
+                  Your order total (<strong class="tc-price text-dark">${fmtMoney(orderObj.grandTotal)}</strong>) is within our
+                  <strong class="tc-price text-dark">${TC.formatInr(maxCodRaw)}</strong> COD limit. Confirm this existing order via COD with no duplicate booking.
+                </p>
+                <div class="tc-recovery-actions">
+                  <button type="button" id="resSwitchCodBtn" class="btn-tc-secondary" style="border-color:#1A1A1A;color:#1A1A1A;">
+                    Switch to Cash on Delivery (COD)
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <div class="tc-cod-cap-notice text-start mt-4">
+                <div class="fw-semibold small mb-1">Cash on Delivery Limit (${TC.formatInr(maxCodRaw)})</div>
+                <p class="small text-muted mb-2">
+                  Cash on Delivery is available for orders up to <strong class="tc-price text-dark">${TC.formatInr(maxCodRaw)}</strong>.
+                  Because this order totals <strong class="tc-price text-dark">${fmtMoney(orderObj.grandTotal)}</strong>, please click
+                  <strong>Retry Payment</strong> above or contact TimeCraft Concierge support.
+                </p>
+                <a href="/pages/contact.html?order=${encodeURIComponent(orderObj.orderNumber)}" class="small fw-semibold text-uppercase" style="letter-spacing:0.08em;color:#8F6F3E;">
+                  Contact Concierge Support &rarr;
+                </a>
+              </div>
+            `}
+          ` : `
+            <div class="tc-recovery-actions justify-content-center">
+              ${orderRef ? `<a href="/pages/order-details.html?order=${encodeURIComponent(orderRef)}" class="btn-tc-primary">Inspect Order</a>` : ''}
+              <a href="/pages/orders.html" class="btn-tc-secondary">All Orders</a>
+            </div>
+          `}`;
+
+        document.getElementById('resRetryBtn')?.addEventListener('click', async (ev) => {
+            const btn = ev.currentTarget;
+            btn.disabled = true;
+            btn.textContent = 'Opening Razorpay Checkout…';
+            try {
+                await TC.launchOrderRazorpayPayment(orderObj, {
+                    retry: true,
+                    onSuccess: (confirmed) => {
+                        window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent((confirmed || orderObj).orderNumber)}`;
+                    },
+                    onFailure: (failCtx) => {
+                        orderObj = failCtx.order || orderObj;
+                        currentStatus = failCtx.status || 'failed';
+                        currentReason = failCtx.reason || currentReason;
+                        render();
+                    }
+                });
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = 'Retry Payment · ' + fmtMoney(orderObj.grandTotal);
+                TC.toast(err.message, 'error');
+            }
+        });
+
+        document.getElementById('resPayuBtn')?.addEventListener('click', async (ev) => {
+            const btn = ev.currentTarget;
+            btn.disabled = true;
+            btn.textContent = 'Redirecting to PayU…';
+            try {
+                await TC.launchOrderPayuPayment(orderObj, { retry: true });
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = 'Pay with PayU';
+                TC.toast(err.message, 'error');
+            }
+        });
+
+        document.getElementById('resSwitchCodBtn')?.addEventListener('click', async (ev) => {
+            const btn = ev.currentTarget;
+            btn.disabled = true;
+            btn.textContent = 'Confirming Cash on Delivery…';
+            try {
+                const updated = await TC.switchOrderToCod(orderObj.orderNumber);
+                window.location.href = `/pages/order-confirmation.html?order=${encodeURIComponent(updated.orderNumber)}&method=COD`;
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = 'Switch to Cash on Delivery (COD)';
+                TC.toast(err.message, 'error');
+            }
+        });
+    }
+
+    render();
 });
 </script>
 </body>

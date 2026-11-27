@@ -353,6 +353,7 @@
             <a href="/admin/refunds" th:classappend="${activeNav == 'refunds'} ? 'active'">Refunds</a>
             <a href="/admin/coupons" th:classappend="${activeNav == 'coupons'} ? 'active'">Coupons</a>
             <a href="/admin/shipments" th:classappend="${activeNav == 'shipments'} ? 'active'">Shipments</a>
+            <a href="/admin/delivery" th:classappend="${activeNav == 'delivery'} ? 'active'">Delivery &amp; PIN Rules</a>
             <a href="/admin/returns" th:classappend="${activeNav == 'returns'} ? 'active'">Returns</a>
             <a href="/admin/reviews" th:classappend="${activeNav == 'reviews'} ? 'active'">Reviews</a>
             <a href="/admin/support" th:classappend="${activeNav == 'support'} ? 'active'">Customer Support</a>
@@ -423,9 +424,11 @@
         </script>
     </header>
 
-<div th:fragment="alerts">
-    <div th:if="${successMessage}" class="alert alert-success rounded-0 py-2 small" th:text="${successMessage}"></div>
-    <div th:if="${errorMessage}" class="alert alert-danger rounded-0 py-2 small" th:text="${errorMessage}"></div>
-</div>
+    <div th:fragment="alerts">
+        <div th:if="${successMessage}" class="alert alert-success rounded-0 py-2 small" th:text="${successMessage}">
+        </div>
+        <div th:if="${errorMessage}" class="alert alert-danger rounded-0 py-2 small" th:text="${errorMessage}"></div>
+    </div>
 </body>
+
 </html>

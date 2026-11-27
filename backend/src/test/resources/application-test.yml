@@ -1,4 +1,8 @@
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
   datasource:
     url: jdbc:h2:mem:timecraft_test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
@@ -35,6 +39,15 @@ app:
     enabled: true
     auth-capacity: 50
     auth-window: 1m
+
+timecraft:
+  checkout:
+    max-cod-amount: 500000
+  payment:
+    payu:
+      merchant-key: otqqIX
+      merchant-salt: Vx6TKHBnxErLEvbrTmLZGMb4eVEAtyQM
+      base-url: https://test.payu.in
 
 management:
   health:

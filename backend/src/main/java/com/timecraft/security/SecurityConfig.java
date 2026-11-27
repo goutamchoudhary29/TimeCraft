@@ -195,6 +195,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/v1/payments/payu/callback", "/api/v1/payments/payu/callback/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/verify-otp",
@@ -215,12 +216,15 @@ public class SecurityConfig {
                                 "/api/v1/brands/**",
                                 "/api/v1/categories/**",
                                 "/api/v1/store/**",
+                                "/api/v1/delivery/**",
                                 "/api/v1/reviews/featured",
-                                "/api/v1/shipments/track/**"
+                                "/api/v1/shipments/track/**",
+                                "/api/v1/payments/payu/callback"
                         ).permitAll()
                         .requestMatchers("/api/v1/cart/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/payments/webhook",
+                                "/api/v1/payments/payu/callback",
                                 "/api/v1/support/contact",
                                 "/api/v1/store/newsletter"
                         ).permitAll()
@@ -255,6 +259,30 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        // Payment gateway browser callbacks & webhooks (PayU surl/furl POST/GET redirects send
+        // Origin: https://test.payu.in, https://secure.payu.in, or Origin: null after 3DS redirects).
+        CorsConfiguration gatewayCallbackCors = new CorsConfiguration();
+        gatewayCallbackCors.setAllowCredentials(false);
+        gatewayCallbackCors.setAllowedOriginPatterns(List.of(
+                "https://test.payu.in",
+                "https://secure.payu.in",
+                "https://*.payu.in",
+                "http://localhost:*",
+                "https://localhost:*",
+                "null",
+                "*"
+        ));
+        gatewayCallbackCors.setAllowedOrigins(List.of(
+                "https://test.payu.in",
+                "https://secure.payu.in",
+                "http://localhost:8080",
+                "null",
+                "*"
+        ));
+        gatewayCallbackCors.setAllowedMethods(List.of("GET", "POST", "OPTIONS", "HEAD"));
+        gatewayCallbackCors.setAllowedHeaders(List.of("*"));
+        gatewayCallbackCors.setMaxAge(3600L);
+
         CorsConfiguration config = new CorsConfiguration();
         var patterns = new java.util.ArrayList<>(properties.cors().allowedOrigins());
         patterns.add("http://localhost:*");
@@ -267,7 +295,11 @@ public class SecurityConfig {
         config.setExposedHeaders(List.of("X-Guest-Token"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/v1/payments/payu/callback", gatewayCallbackCors);
+        source.registerCorsConfiguration("/api/v1/payments/payu/callback/**", gatewayCallbackCors);
+        source.registerCorsConfiguration("/api/v1/payments/webhook", gatewayCallbackCors);
         source.registerCorsConfiguration("/api/**", config);
         return source;
     }

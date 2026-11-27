@@ -3,14 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Timepiece Details · TimeCraft</title>
+    <title>Horological Dossier · TimeCraft</title>
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/styles.css" rel="stylesheet">
+    <style>
+        .tc-pdp-thumb {
+            width: 78px;
+            height: 98px;
+            object-fit: cover;
+            border: 1px solid var(--tc-border);
+            background: var(--tc-pearl);
+            cursor: pointer;
+            opacity: 0.72;
+            transition: opacity 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+        }
+        .tc-pdp-thumb:hover,
+        .tc-pdp-thumb.active {
+            opacity: 1;
+            border-color: var(--tc-obsidian);
+        }
+        .tc-pdp-breadcrumb {
+            font-size: 11px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--tc-muted);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 28px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--tc-border);
+        }
+        .tc-pdp-assurance-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid var(--tc-border);
+        }
+        @media (max-width: 575.98px) {
+            .tc-pdp-assurance-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
 <div id="tcHeader"></div>
 <main class="container py-5" id="pdpRoot">
-    <div class="py-5 text-center text-muted">Loading timepiece dossier…</div>
+    <div class="py-5 text-center text-muted small">Loading horological dossier…</div>
 </main>
 <div id="tcFooter"></div>
 <script src="/js/app.js"></script>
@@ -23,10 +67,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         const p = await TC.api('/products/' + encodeURIComponent(slugOrId));
-        document.title = `${p.brandName} ${p.name} · TimeCraft`;
+        document.title = `${p.brandName} ${p.name} · TimeCraft Dossier`;
         const primaryImg = (p.images && p.images.length) ? p.images[0].url : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200';
         const activeVariants = (p.variants || []).filter(v => v.active);
         const firstVariant = activeVariants.find(v => v.availableStock > 0) || activeVariants[0] || {};
+        const labelObj = TC.getEditorialLabel({
+            brandName: p.brandName,
+            sellingPrice: firstVariant.sellingPrice || p.sellingPrice,
+            movementType: p.movementType,
+            newArrival: p.newArrival,
+            featured: p.featured,
+            totalAvailableStock: p.totalAvailableStock
+        });
 
         TC.recordRecentlyViewed({
             id: p.id,
@@ -44,66 +96,115 @@ document.addEventListener('DOMContentLoaded', async () => {
             primaryImageUrl: primaryImg
         });
 
+        const activeSelling = firstVariant.sellingPrice || p.sellingPrice;
+        const codEligible = TC.isOrderCodEligible(activeSelling);
+
         root.innerHTML = `
-        <div class="row g-5">
+        <nav class="tc-pdp-breadcrumb" aria-label="Breadcrumb">
+          <a href="/index.html">Home</a>
+          <span>/</span>
+          <a href="/pages/shop.html">Timepieces</a>
+          <span>/</span>
+          <a href="/pages/brand-details.html?slug=${encodeURIComponent(p.brandSlug)}">${TC.escapeHtml(p.brandName)}</a>
+          <span>/</span>
+          <span class="text-dark">${TC.escapeHtml(p.name)}</span>
+        </nav>
+
+        <div class="row g-5 align-items-start">
           <div class="col-lg-6">
-            <div class="tc-watch-media mb-3">
-              <img id="pdpMainImage" src="${TC.escapeHtml(primaryImg)}" alt="${TC.escapeHtml(p.name)}">
+            <div class="tc-watch-media mb-3" style="position:sticky;top:92px;">
+              ${labelObj ? `<span class="tc-watch-tag ${labelObj.cls || ''}">${TC.escapeHtml(labelObj.text)}</span>` : ''}
+              <img id="pdpMainImage" src="${TC.escapeHtml(primaryImg)}" alt="${TC.escapeHtml(p.brandName + ' ' + p.name)}" style="transition:opacity 0.25s ease, transform 0.8s var(--tc-ease-out);">
             </div>
-            <div class="d-flex gap-2 flex-wrap">
-              ${(p.images || []).map(img => `
+            ${(p.images && p.images.length > 1) ? `
+            <div class="d-flex gap-2 flex-wrap" id="pdpThumbsBar">
+              ${p.images.map((img, idx) => `
                 <img src="${TC.escapeHtml(img.url)}" alt="${TC.escapeHtml(img.altText || p.name)}"
-                     style="width:74px;height:92px;object-fit:cover;border:1px solid #E5E2DC;cursor:pointer;"
-                     onclick="document.getElementById('pdpMainImage').src='${TC.escapeHtml(img.url)}'">`).join('')}
-            </div>
+                     class="tc-pdp-thumb ${idx === 0 ? 'active' : ''}"
+                     data-img-url="${TC.escapeHtml(img.url)}">`).join('')}
+            </div>` : ''}
           </div>
-          <div class="col-lg-6">
-            <a href="/pages/brand-details.html?slug=${encodeURIComponent(p.brandSlug)}" class="tc-eyebrow d-inline-block mb-1">${TC.escapeHtml(p.brandName)}</a>
-            <h1 class="display-5 tc-serif mb-1">${TC.escapeHtml(p.name)}</h1>
-            <div class="small text-muted mb-3">Model ${TC.escapeHtml(p.modelName)} · Master SKU <span class="tc-num" id="pdpSku">${TC.escapeHtml(firstVariant.sku || p.sku)}</span></div>
 
-            <div class="d-flex align-items-baseline gap-3 mb-3 tc-price">
-              <span class="fs-3 fw-semibold" id="pdpSellingPrice">${TC.formatInr(firstVariant.sellingPrice || p.sellingPrice)}</span>
-              ${Number(p.discountPercent) > 0 ? `<span class="text-muted text-decoration-line-through" id="pdpRegularPrice">${TC.formatInr(firstVariant.regularPrice || p.regularPrice)}</span>
-              <span class="badge bg-dark rounded-0">-${Math.round(p.discountPercent)}%</span>` : ''}
+          <div class="col-lg-6">
+            <a href="/pages/brand-details.html?slug=${encodeURIComponent(p.brandSlug)}" class="tc-eyebrow d-inline-block mb-2">${TC.escapeHtml(p.brandName)}</a>
+            <h1 class="display-5 tc-serif mb-2">${TC.escapeHtml(p.name)}</h1>
+            <div class="small text-muted mb-4" style="letter-spacing:0.06em;">
+              Model ${TC.escapeHtml(p.modelName)} &middot; Reference <span class="tc-num text-dark fw-medium" id="pdpSku">${TC.escapeHtml(firstVariant.sku || p.sku)}</span>
             </div>
 
-            <p class="text-muted mb-4">${TC.escapeHtml(p.description || p.shortDescription || '')}</p>
+            <div class="pb-4 mb-4" style="border-bottom:1px solid var(--tc-border);">
+              <div class="tc-eyebrow mb-1" style="color:var(--tc-muted);font-size:9.5px;">Authorised Retail Valuation (Incl. GST)</div>
+              <div class="d-flex align-items-baseline gap-3 tc-price">
+                <span class="fs-2 fw-semibold" id="pdpSellingPrice">${TC.formatInr(activeSelling)}</span>
+              </div>
+            </div>
+
+            <p class="text-muted mb-4" style="line-height:1.75;">${TC.escapeHtml(p.description || p.shortDescription || '')}</p>
 
             <div class="tc-panel mb-4">
               <div class="row g-3 align-items-end">
                 <div class="col-md-8">
-                  <label class="form-label small text-uppercase">Select Reference Variant</label>
+                  <label for="pdpVariantSelect" class="form-label small text-uppercase" style="font-size:10.5px;letter-spacing:0.12em;">Select Reference Configuration</label>
                   <select id="pdpVariantSelect" class="form-select">
                     ${activeVariants.map(v => `
                       <option value="${v.id}" data-sku="${TC.escapeHtml(v.sku)}"
                               data-selling="${v.sellingPrice}" data-regular="${v.regularPrice}"
                               data-stock="${v.availableStock}"
                               ${v.id === firstVariant.id ? 'selected' : ''}>
-                        ${TC.escapeHtml(v.name)} — ${TC.formatInr(v.sellingPrice)} (${v.availableStock > 0 ? v.availableStock + ' in stock' : 'Out of stock'})
+                        ${TC.escapeHtml(v.name)} — ${TC.formatInr(v.sellingPrice)} (${v.availableStock > 0 ? v.availableStock + ' in vault' : 'Allocated'})
                       </option>`).join('')}
                   </select>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label small text-uppercase">Quantity</label>
+                  <label for="pdpQty" class="form-label small text-uppercase" style="font-size:10.5px;letter-spacing:0.12em;">Quantity</label>
                   <input type="number" id="pdpQty" min="1" max="5" value="1" class="form-control tc-num">
                 </div>
                 <div class="col-12 d-flex flex-wrap gap-2 pt-2">
                   <button type="button" id="pdpAddCartBtn" class="btn-tc-primary flex-grow-1"
                           ${(firstVariant.availableStock || 0) <= 0 ? 'disabled' : ''}>
-                    ${(firstVariant.availableStock || 0) <= 0 ? 'Currently Sold Out' : 'Add Timepiece to Bag'}
+                    ${(firstVariant.availableStock || 0) <= 0 ? 'Currently Allocated' : 'Add Timepiece to Bag'}
                   </button>
-                  <button type="button" class="btn-tc-secondary" onclick="TC.quickAddToWishlist(${p.id}, document.getElementById('pdpVariantSelect')?.value)">♥ Wishlist</button>
-                  <button type="button" class="btn-tc-secondary" onclick="TC.toggleCompare(${p.id})">⇄ Compare</button>
+                  <button type="button" class="btn-tc-secondary" onclick="TC.quickAddToWishlist(${p.id}, document.getElementById('pdpVariantSelect')?.value)">Wishlist</button>
+                  <button type="button" class="btn-tc-secondary" onclick="TC.toggleCompare(${p.id})">Compare</button>
                 </div>
               </div>
-              <div class="small text-muted mt-3 pt-2 border-top d-flex justify-content-between">
-                <span>✓ Authorised ${p.warrantyMonths}-Month Maison Warranty</span>
-                <span>✓ Insured Armoured Delivery</span>
+
+              <div class="tc-pdp-assurance-grid small">
+                <div>
+                  <div class="tc-eyebrow" style="font-size:9.5px;">Warranty</div>
+                  <div class="text-muted">${p.warrantyMonths}-Month Maison Guarantee</div>
+                </div>
+                <div>
+                  <div class="tc-eyebrow" style="font-size:9.5px;">Regulation</div>
+                  <div class="text-muted">5-Position Bench Certified</div>
+                </div>
+                <div>
+                  <div class="tc-eyebrow" style="font-size:9.5px;">Settlement</div>
+                  <div class="text-muted" id="pdpCodNote">${codEligible ? 'Online &amp; COD Eligible' : 'Insured Online Settlement'}</div>
+                </div>
               </div>
             </div>
 
-            <h2 class="h4 tc-serif mb-2">Horological Specifications</h2>
+            <!-- Dynamic Delivery & PIN Code Estimator -->
+            <section class="tc-pdp-delivery-panel" aria-label="Delivery Estimation">
+              <div class="tc-pdp-delivery-head">
+                <div class="d-flex align-items-center gap-2">
+                  ${TC.TRUCK_SVG}
+                  <span class="tc-eyebrow" style="font-size:10px;">Insured Vault Delivery &amp; PIN Check</span>
+                </div>
+                <span class="small text-muted" style="font-size:11px;">Excludes Sundays &amp; Public Holidays</span>
+              </div>
+              <form id="pdpPinForm" class="tc-pdp-pin-form" novalidate>
+                <label for="pdpPinInput" class="visually-hidden">Enter 6-digit PIN Code</label>
+                <input type="text" id="pdpPinInput" class="tc-pdp-pin-input" maxlength="6" inputmode="numeric"
+                       placeholder="Enter PIN Code (e.g. 560001)" value="${TC.escapeHtml(TC.getSavedDeliveryPin())}">
+                <button type="submit" id="pdpPinCheckBtn" class="tc-pdp-pin-btn">Check</button>
+              </form>
+              <div id="pdpDeliveryResult" class="tc-pdp-delivery-result" aria-live="polite"></div>
+            </section>
+
+            <div class="tc-eyebrow mb-1">Technical Dossier</div>
+            <h2 class="h3 tc-serif mb-3">Horological Specifications</h2>
             <table class="table table-bordered tc-spec-table small mb-0">
               <tbody>
                 <tr><th>Maison</th><td>${TC.escapeHtml(p.brandName)}</td></tr>
@@ -114,26 +215,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <tr><th>Water Resistance</th><td class="tc-num">${TC.escapeHtml(p.waterResistanceM)} m</td></tr>
                 <tr><th>Crystal</th><td>${TC.escapeHtml(p.crystalType)}</td></tr>
                 <tr><th>Strap / Bracelet</th><td>${TC.escapeHtml(p.strapMaterial)}</td></tr>
-                <tr><th>Dial Color</th><td>${TC.escapeHtml(p.dialColor)}</td></tr>
-                <tr><th>Warranty</th><td>${p.warrantyMonths} Months Official Warranty</td></tr>
+                <tr><th>Dial Finish</th><td>${TC.escapeHtml(p.dialColor)}</td></tr>
+                <tr><th>Official Warranty</th><td>${p.warrantyMonths} Months International Maison Warranty</td></tr>
                 ${(p.attributes || []).map(a => `<tr><th>${TC.escapeHtml(a.name)}</th><td>${TC.escapeHtml(a.value)}</td></tr>`).join('')}
               </tbody>
             </table>
           </div>
         </div>
 
-        <section class="mt-5 pt-4 border-top">
+        <section class="mt-5 pt-5" style="border-top:1px solid var(--tc-border);">
           <div class="row g-4">
             <div class="col-lg-7">
+              <div class="tc-eyebrow mb-1">Collector Impressions</div>
               <h2 class="h3 tc-serif mb-3">Verified Collector Reviews (${p.reviewCount})</h2>
               <div id="pdpReviewsHost" class="vstack gap-3"></div>
             </div>
             <div class="col-lg-5">
               <div class="tc-panel">
-                <h3 class="h5 tc-serif mb-2">Submit a Verified Purchase Review</h3>
-                <p class="text-muted small">Only collectors with a delivered order containing this timepiece may submit a review.</p>
+                <div class="tc-eyebrow mb-1">Verified Provenance</div>
+                <h3 class="h4 tc-serif mb-2">Record a Collector Review</h3>
+                <p class="text-muted small">Only collectors with a delivered order containing this reference may publish an impression.</p>
                 <form id="pdpReviewForm" class="vstack gap-2">
-                  <select id="revRating" class="form-select form-select-sm">
+                  <select id="revRating" class="form-select form-select-sm" aria-label="Rating">
                     <option value="5">★★★★★ (5 / 5)</option>
                     <option value="4">★★★★☆ (4 / 5)</option>
                     <option value="3">★★★☆☆ (3 / 5)</option>
@@ -141,46 +244,189 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <option value="1">★☆☆☆☆ (1 / 5)</option>
                   </select>
                   <input type="text" id="revTitle" class="form-control form-control-sm" required placeholder="Review headline">
-                  <textarea id="revBody" rows="3" class="form-control form-control-sm" required placeholder="Share your impressions of the movement, finishing and comfort..."></textarea>
-                  <button type="submit" class="btn-tc-primary">Submit for Moderation</button>
+                  <textarea id="revBody" rows="3" class="form-control form-control-sm" required placeholder="Share your impressions of the calibre, case finishing and wrist balance…"></textarea>
+                  <button type="submit" class="btn-tc-primary">Submit for Concierge Review</button>
                 </form>
               </div>
             </div>
           </div>
         </section>
 
-        <section class="mt-5 pt-4 border-top">
-          <h2 class="h3 tc-serif mb-3">Recently Viewed Timepieces</h2>
-          <div class="row g-4" id="pdpRecentGrid"></div>
+        <section class="mt-5 pt-5" style="border-top:1px solid var(--tc-border);">
+          <div class="tc-section-header mb-4">
+            <div>
+              <div class="tc-eyebrow mb-1">Private Viewing Tray</div>
+              <h2 class="h3 tc-serif mb-0">Recently Inspected Timepieces</h2>
+            </div>
+            <a href="/pages/shop.html" class="tc-link-editorial">Explore Complete Archive <span>&rarr;</span></a>
+          </div>
+          <div id="pdpRecentGrid" class="tc-product-grid"></div>
         </section>`;
+
+        document.querySelectorAll('#pdpThumbsBar .tc-pdp-thumb').forEach(thumb => {
+            thumb.addEventListener('click', () => {
+                const mainImg = document.getElementById('pdpMainImage');
+                const nextUrl = thumb.getAttribute('data-img-url');
+                if (!mainImg || !nextUrl) return;
+                document.querySelectorAll('#pdpThumbsBar .tc-pdp-thumb').forEach(t => t.classList.remove('active'));
+                thumb.classList.add('active');
+                mainImg.style.opacity = '0.4';
+                setTimeout(() => {
+                    mainImg.src = nextUrl;
+                    mainImg.style.opacity = '1';
+                }, 110);
+            });
+        });
 
         const variantSel = document.getElementById('pdpVariantSelect');
         const addBtn = document.getElementById('pdpAddCartBtn');
+        const pinForm = document.getElementById('pdpPinForm');
+        const pinInput = document.getElementById('pdpPinInput');
+        const pinBtn = document.getElementById('pdpPinCheckBtn');
+        const deliveryResultEl = document.getElementById('pdpDeliveryResult');
+
+        function renderPdpDeliveryEstimate(est) {
+            if (!deliveryResultEl) return;
+            if (!est) {
+                deliveryResultEl.innerHTML = `<div class="small text-muted">Enter your 6-digit PIN code to view exact dispatch and delivery dates.</div>`;
+                return;
+            }
+            const isOutOfStock = !est.available || est.stockCondition === 'OUT_OF_STOCK';
+            const isUnserviceable = !est.serviceable;
+            const isSpecial = est.stockCondition === 'PRE_ORDER' || est.stockCondition === 'MADE_TO_ORDER';
+
+            let badgeCls = 'is-ok';
+            let badgeText = est.pinCode ? `Deliverable to ${est.pinCode}` : 'Available for Insured Dispatch';
+            if (isOutOfStock) {
+                badgeCls = 'is-error';
+                badgeText = 'Currently Out of Stock';
+            } else if (isUnserviceable) {
+                badgeCls = 'is-error';
+                badgeText = `Not Serviceable (${est.pinCode || 'PIN'})`;
+            } else if (est.stockCondition === 'PRE_ORDER') {
+                badgeCls = 'is-special';
+                badgeText = est.pinCode ? `Pre-Order · Deliverable to ${est.pinCode}` : 'Pre-Order Allocation';
+            } else if (est.stockCondition === 'MADE_TO_ORDER') {
+                badgeCls = 'is-special';
+                badgeText = est.pinCode ? `Made to Order · Deliverable to ${est.pinCode}` : 'Made to Order';
+            } else if (est.stockCondition === 'LOW_STOCK') {
+                badgeCls = 'is-special';
+                badgeText = est.pinCode ? `Limited Vault Stock · Deliverable to ${est.pinCode}` : 'Limited Vault Stock';
+            }
+
+            const dateRange = TC.formatDeliveryDateRange(est.estimatedDeliveryStartDate, est.estimatedDeliveryEndDate);
+            const dispatchText = est.expectedDispatchDate ? TC.formatDeliveryDate(est.expectedDispatchDate) : '—';
+            const businessDaysText = est.totalBusinessDaysMin > 0
+                ? (est.totalBusinessDaysMin === est.totalBusinessDaysMax
+                    ? `${est.totalBusinessDaysMin} business days`
+                    : `${est.totalBusinessDaysMin}–${est.totalBusinessDaysMax} business days`)
+                : '';
+
+            deliveryResultEl.innerHTML = `
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <span class="tc-delivery-status-badge ${badgeCls}">${TC.escapeHtml(badgeText)}</span>
+                ${est.zoneType && est.pinCode && !isUnserviceable && !isOutOfStock
+                    ? `<span class="small text-muted text-uppercase" style="font-size:10px;letter-spacing:0.12em;">${TC.escapeHtml(String(est.zoneType).replace(/_/g, ' '))} Zone</span>`
+                    : ''}
+              </div>
+              <div class="small text-dark fw-medium mb-1">${TC.escapeHtml(est.shortLabel || '')}</div>
+              ${est.detailMessage ? `<div class="small text-muted mb-2">${TC.escapeHtml(est.detailMessage)}</div>` : ''}
+              ${(!isOutOfStock && !isUnserviceable) ? `
+              <div class="tc-pdp-delivery-grid">
+                <div>
+                  <div class="tc-pdp-delivery-meta-label">Estimated Delivery</div>
+                  <div class="tc-pdp-delivery-meta-val tc-num">${TC.escapeHtml(dateRange || businessDaysText)}</div>
+                  ${dateRange && businessDaysText ? `<div class="small text-muted" style="font-size:11px;">(${TC.escapeHtml(businessDaysText)})</div>` : ''}
+                </div>
+                <div>
+                  <div class="tc-pdp-delivery-meta-label">Expected Dispatch</div>
+                  <div class="tc-pdp-delivery-meta-val tc-num">${TC.escapeHtml(dispatchText)}</div>
+                  ${est.warehouseName ? `<div class="small text-muted" style="font-size:11px;">From ${TC.escapeHtml(est.warehouseName)}${est.warehouseCity ? ' (' + TC.escapeHtml(est.warehouseCity) + ')' : ''}</div>` : ''}
+                </div>
+                ${est.preorderReleaseDate ? `
+                <div>
+                  <div class="tc-pdp-delivery-meta-label">Expected Availability</div>
+                  <div class="tc-pdp-delivery-meta-val tc-num">${TC.escapeHtml(TC.formatDeliveryDate(est.preorderReleaseDate))}</div>
+                </div>` : ''}
+                <div style="${est.preorderReleaseDate ? '' : 'grid-column:1 / -1;'}">
+                  <div class="tc-pdp-delivery-meta-label">Shipping &amp; Courier</div>
+                  <div class="small text-muted">${TC.escapeHtml(est.shippingInfo || (est.courierName ? 'Insured courier via ' + est.courierName : 'Insured armoured vault delivery'))}</div>
+                </div>
+              </div>` : ''}`;
+        }
+
+        async function fetchPdpDelivery(pinCode, showToastOnInvalid = false) {
+            const cleanPin = String(pinCode || '').replace(/\D/g, '').slice(0, 6);
+            if (pinInput && pinInput.value !== cleanPin) pinInput.value = cleanPin;
+            if (cleanPin && cleanPin.length !== 6) {
+                if (showToastOnInvalid) {
+                    TC.toast('Please enter a valid 6-digit Indian PIN code', 'error');
+                }
+                return;
+            }
+            if (pinBtn) {
+                pinBtn.disabled = true;
+                pinBtn.textContent = 'Checking…';
+            }
+            try {
+                const qs = new URLSearchParams({ productId: String(p.id) });
+                if (variantSel && variantSel.value) qs.set('variantId', String(variantSel.value));
+                if (cleanPin) qs.set('pinCode', cleanPin);
+                const est = await TC.api('/delivery/estimate?' + qs.toString());
+                if (cleanPin) TC.setSavedDeliveryPin(cleanPin);
+                renderPdpDeliveryEstimate(est);
+            } catch (err) {
+                if (showToastOnInvalid) TC.toast(err.message || 'Unable to check PIN delivery', 'error');
+            } finally {
+                if (pinBtn) {
+                    pinBtn.disabled = false;
+                    pinBtn.textContent = 'Check';
+                }
+            }
+        }
+
+        // Initial delivery render (uses product default immediately, then refreshes with saved PIN if present)
+        renderPdpDeliveryEstimate(p.deliveryEstimate);
+        if (TC.getSavedDeliveryPin()) {
+            fetchPdpDelivery(TC.getSavedDeliveryPin(), false);
+        }
+
+        pinForm?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            fetchPdpDelivery(pinInput ? pinInput.value : '', true);
+        });
+
         variantSel.addEventListener('change', () => {
             const opt = variantSel.selectedOptions[0];
             if (!opt) return;
+            const nextPrice = opt.getAttribute('data-selling');
             document.getElementById('pdpSku').textContent = opt.getAttribute('data-sku');
-            document.getElementById('pdpSellingPrice').textContent = TC.formatInr(opt.getAttribute('data-selling'));
+            document.getElementById('pdpSellingPrice').textContent = TC.formatInr(nextPrice);
+            const codEl = document.getElementById('pdpCodNote');
+            if (codEl) {
+                codEl.textContent = TC.isOrderCodEligible(nextPrice) ? 'Online & COD Eligible' : 'Insured Online Settlement';
+            }
             const stock = Number(opt.getAttribute('data-stock') || 0);
             addBtn.disabled = stock <= 0;
-            addBtn.textContent = stock <= 0 ? 'Currently Sold Out' : 'Add Timepiece to Bag';
+            addBtn.textContent = stock <= 0 ? 'Currently Allocated' : 'Add Timepiece to Bag';
+            fetchPdpDelivery(pinInput ? pinInput.value : '', false);
         });
+
         addBtn.addEventListener('click', () => {
             const qty = Number(document.getElementById('pdpQty').value || 1);
             TC.quickAddToCart(variantSel.value, qty);
         });
 
-        // Load approved reviews
         const revs = await TC.api(`/products/${p.id}/reviews`);
         const revHost = document.getElementById('pdpReviewsHost');
         if (!revs.content || revs.content.length === 0) {
-            revHost.innerHTML = '<div class="text-muted small">No published collector reviews yet for this reference.</div>';
+            revHost.innerHTML = '<div class="tc-panel-stone small text-muted">No published collector impressions yet for this reference.</div>';
         } else {
             revHost.innerHTML = revs.content.map(r => `
                 <div class="tc-panel">
-                  <div class="d-flex justify-content-between small">
-                    <span class="fw-semibold">${TC.escapeHtml(r.title)} · ${'★'.repeat(r.rating)}</span>
-                    <span class="text-muted">Verified Purchase · ${TC.escapeHtml(r.reviewerName)}</span>
+                  <div class="d-flex flex-wrap justify-content-between gap-2 small">
+                    <span class="fw-semibold">${TC.escapeHtml(r.title)} &middot; <span style="color:var(--tc-gold);">${'★'.repeat(r.rating)}</span></span>
+                    <span class="text-muted">Verified Collector &middot; ${TC.escapeHtml(r.reviewerName)}</span>
                   </div>
                   <p class="small text-muted mb-0 mt-2">${TC.escapeHtml(r.body)}</p>
                 </div>`).join('');
@@ -210,11 +456,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const recent = TC.getRecentlyViewed().filter(x => x.id !== p.id).slice(0, 4);
-        document.getElementById('pdpRecentGrid').innerHTML = recent.length
-            ? recent.map(TC.renderWatchCard).join('')
-            : '<div class="col-12 text-muted small">Browse more watches to build your recently viewed tray.</div>';
+        const recentHost = document.getElementById('pdpRecentGrid');
+        if (recent.length) {
+            recentHost.innerHTML = recent.map(item => TC.renderWatchCard(item, { bare: true })).join('');
+            TC.initScrollAnimations();
+        } else {
+            recentHost.innerHTML = '<div class="text-muted small" style="grid-column: 1 / -1;">Inspect additional references to populate your private viewing tray.</div>';
+        }
     } catch (err) {
-        root.innerHTML = `<div class="tc-panel text-center py-5"><h2 class="tc-serif">Timepiece not found</h2><p class="text-muted small">${TC.escapeHtml(err.message)}</p><a href="/pages/shop.html" class="btn-tc-primary">Return to Catalog</a></div>`;
+        root.innerHTML = `<div class="tc-panel text-center py-5"><h2 class="tc-serif">Reference not found</h2><p class="text-muted small">${TC.escapeHtml(err.message)}</p><a href="/pages/shop.html" class="btn-tc-primary">Return to Archive</a></div>`;
     }
 });
 </script>

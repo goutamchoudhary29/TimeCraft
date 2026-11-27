@@ -1,5 +1,7 @@
 package com.timecraft.payment.service;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razorpay.RazorpayClient;
@@ -15,6 +17,7 @@ import com.timecraft.exception.ResourceNotFoundException;
 import com.timecraft.order.dto.OrderDtos.OrderDetailDto;
 import com.timecraft.order.entity.Order;
 import com.timecraft.order.entity.OrderStatus;
+import com.timecraft.order.entity.PaymentMethod;
 import com.timecraft.order.entity.PaymentStatus;
 import com.timecraft.order.service.OrderService;
 import com.timecraft.payment.entity.Payment;
@@ -63,21 +66,37 @@ public class RazorpayPaymentService {
     private final OrderService orderService;
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
+    private volatile HttpClient httpClient;
+
+    private HttpClient httpClient() {
+        HttpClient c = this.httpClient;
+        if (c == null) {
+            c = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+            this.httpClient = c;
+        }
+        return c;
+    }
 
     private static final String SANDBOX_KEY_ID = "rzp_test_sandbox_timecraft";
     private static final String SANDBOX_KEY_SECRET = "rzp_test_sandbox_secret_key_timecraft_2026";
 
-    public record CreatePaymentRequest(@NotNull Long orderId) {
+    public record CreatePaymentRequest(
+            @JsonProperty("orderId") @NotNull Long orderId,
+            @JsonProperty("retry") Boolean retry
+    ) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public CreatePaymentRequest {
+        }
     }
 
     public record SandboxAuthorizeRequest(
-            @NotNull Long orderId,
-            @NotBlank String razorpayOrderId,
-            String paymentMethod
+            @JsonProperty("orderId") @NotNull Long orderId,
+            @JsonProperty("razorpayOrderId") @NotBlank String razorpayOrderId,
+            @JsonProperty("paymentMethod") String paymentMethod
     ) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public SandboxAuthorizeRequest {
+        }
     }
 
     public record sandboxSignatureResponse(
@@ -89,21 +108,27 @@ public class RazorpayPaymentService {
     }
 
     public record VerifyPaymentRequest(
-            Long orderId,
-            @NotBlank String razorpayOrderId,
-            @NotBlank String razorpayPaymentId,
-            @NotBlank String razorpaySignature,
-            String paymentMethod
+            @JsonProperty("orderId") Long orderId,
+            @JsonProperty("razorpayOrderId") @NotBlank String razorpayOrderId,
+            @JsonProperty("razorpayPaymentId") @NotBlank String razorpayPaymentId,
+            @JsonProperty("razorpaySignature") @NotBlank String razorpaySignature,
+            @JsonProperty("paymentMethod") String paymentMethod
     ) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public VerifyPaymentRequest {
+        }
     }
 
     public record PaymentFailureReport(
-            @NotNull Long orderId,
-            String razorpayOrderId,
-            String razorpayPaymentId,
-            String reason,
-            boolean cancelled
+            @JsonProperty("orderId") @NotNull Long orderId,
+            @JsonProperty("razorpayOrderId") String razorpayOrderId,
+            @JsonProperty("razorpayPaymentId") String razorpayPaymentId,
+            @JsonProperty("reason") String reason,
+            @JsonProperty("cancelled") boolean cancelled
     ) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public PaymentFailureReport {
+        }
     }
 
     public record PaymentOrderResponse(
@@ -177,9 +202,25 @@ public class RazorpayPaymentService {
                     "Your reservation window expired. Please place a new order.");
         }
 
-        // Reuse existing CREATED payment attempt for idempotency
-        var existingCreated = paymentRepository.findFirstByOrderIdAndStatusInOrderByCreatedAtDesc(
-                order.getId(), List.of(PaymentAttemptStatus.CREATED));
+        if (order.getPaymentMethod() != PaymentMethod.RAZORPAY) {
+            order.setPaymentMethod(PaymentMethod.RAZORPAY);
+        }
+
+        List<Payment> openAttempts = paymentRepository.findByOrderIdOrderByCreatedAtDesc(order.getId());
+        java.util.Optional<Payment> existingCreated = java.util.Optional.empty();
+        for (Payment open : openAttempts) {
+            if (open.getStatus() == PaymentAttemptStatus.CREATED) {
+                if (Boolean.TRUE.equals(req.retry()) || !"RAZORPAY".equalsIgnoreCase(open.getProvider())) {
+                    open.setStatus(PaymentAttemptStatus.CANCELLED);
+                    open.setFailureReason("Superseded by Razorpay payment attempt");
+                    paymentRepository.save(open);
+                    recordTx(open, "PAYMENT_RETRY_SUPERSEDED", open.getAmount(), "CANCELLED",
+                            open.getProviderOrderId(), "Customer initiated a fresh Razorpay payment attempt");
+                } else if (existingCreated.isEmpty()) {
+                    existingCreated = java.util.Optional.of(open);
+                }
+            }
+        }
         var cfg = properties.razorpay();
         boolean useSandbox = !cfg.configured() && cfg.testSandboxEnabled();
 
@@ -338,20 +379,43 @@ public class RazorpayPaymentService {
     @Transactional
     public OrderDetailDto reportFailureOrCancellation(Long userId, PaymentFailureReport req) {
         Order order = orderService.findCustomerOrderEntity(userId, String.valueOf(req.orderId()));
+        String cleanReason = (req.reason() != null && !req.reason().isBlank())
+                ? req.reason().trim()
+                : (req.cancelled() ? "Payment modal was closed before completion" : "Payment attempt was not completed");
         if (req.razorpayOrderId() != null && !req.razorpayOrderId().isBlank()) {
             paymentRepository.findByProviderOrderId(req.razorpayOrderId().trim()).ifPresent(p -> {
-                if (p.getStatus() == PaymentAttemptStatus.CREATED) {
+                if (p.getOrder().getId().equals(order.getId()) && p.getStatus() == PaymentAttemptStatus.CREATED) {
+                    if (req.razorpayPaymentId() != null && !req.razorpayPaymentId().isBlank()) {
+                        String pid = req.razorpayPaymentId().trim();
+                        if (paymentRepository.findByProviderPaymentId(pid).isEmpty()) {
+                            p.setProviderPaymentId(pid);
+                        }
+                    }
                     p.setStatus(req.cancelled() ? PaymentAttemptStatus.CANCELLED : PaymentAttemptStatus.FAILED);
-                    p.setFailureReason(req.reason());
+                    p.setFailureReason(cleanReason);
                     paymentRepository.save(p);
                     recordTx(p, req.cancelled() ? "PAYMENT_CANCELLED" : "PAYMENT_FAILED",
-                            p.getAmount(), p.getStatus().name(), req.razorpayPaymentId(), req.reason());
+                            p.getAmount(), p.getStatus().name(), req.razorpayPaymentId(), cleanReason);
                 }
             });
         }
-        orderService.handlePaymentFailedOrExpired(order,
-                req.reason() != null ? req.reason() : "Payment attempt was not completed", req.cancelled());
-        return OrderDetailDto.from(order);
+        return orderService.recordPaymentAttemptIncomplete(order, cleanReason, req.cancelled(), userId);
+    }
+
+    @Transactional
+    public OrderDetailDto switchOrderToCod(Long userId, String idOrNumber) {
+        OrderDetailDto updated = orderService.switchPendingOrderToCod(userId, idOrNumber);
+        List<Payment> attempts = paymentRepository.findByOrderIdOrderByCreatedAtDesc(updated.id());
+        for (Payment p : attempts) {
+            if (p.getStatus() == PaymentAttemptStatus.CREATED) {
+                p.setStatus(PaymentAttemptStatus.CANCELLED);
+                p.setFailureReason("Customer switched order to Cash on Delivery");
+                paymentRepository.save(p);
+                recordTx(p, "SWITCHED_TO_COD", p.getAmount(), "CANCELLED",
+                        p.getProviderOrderId(), "Order switched from online payment to Cash on Delivery");
+            }
+        }
+        return updated;
     }
 
     @Transactional
@@ -576,6 +640,9 @@ public class RazorpayPaymentService {
     }
 
     public String callRazorpayRefund(Payment payment, BigDecimal amount, String refundReference) {
+        if ("PAYU".equalsIgnoreCase(payment.getProvider())) {
+            return "payu_rfnd_" + TokenUtils.randomAlphanumeric(12);
+        }
         var cfg = properties.razorpay();
         if (!cfg.configured() && cfg.testSandboxEnabled()) {
             return "rfnd_test_" + TokenUtils.randomAlphanumeric(14);
@@ -599,7 +666,7 @@ public class RazorpayPaymentService {
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient().send(request, HttpResponse.BodyHandlers.ofString());
             JsonNode json = objectMapper.readTree(response.body());
             if (response.statusCode() >= 300 || !json.hasNonNull("id")) {
                 String msg = json.path("error").path("description").asText("Razorpay refund failed");

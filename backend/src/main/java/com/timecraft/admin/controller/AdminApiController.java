@@ -20,6 +20,15 @@ import com.timecraft.coupon.service.CouponService.CouponDto;
 import com.timecraft.coupon.service.CouponService.CouponRequest;
 import com.timecraft.customer.service.CustomerService;
 import com.timecraft.customer.service.CustomerService.ProfileDto;
+import com.timecraft.delivery.dto.DeliveryDtos.HolidayRequest;
+import com.timecraft.delivery.dto.DeliveryDtos.PinRuleRequest;
+import com.timecraft.delivery.dto.DeliveryDtos.ProductDeliveryConfigDto;
+import com.timecraft.delivery.dto.DeliveryDtos.ProductDeliveryConfigRequest;
+import com.timecraft.delivery.dto.DeliveryDtos.WarehouseRequest;
+import com.timecraft.delivery.entity.DeliveryHoliday;
+import com.timecraft.delivery.entity.DeliveryPinRule;
+import com.timecraft.delivery.entity.DeliveryWarehouse;
+import com.timecraft.delivery.service.DeliveryEstimationService;
 import com.timecraft.inventory.service.InventoryService;
 import com.timecraft.inventory.service.InventoryService.InventoryAdjustmentRequest;
 import com.timecraft.inventory.service.InventoryService.InventoryDto;
@@ -96,6 +105,7 @@ public class AdminApiController {
     private final ReturnAndRefundService returnService;
     private final CustomerService customerService;
     private final StoreConfigService storeConfigService;
+    private final DeliveryEstimationService deliveryEstimationService;
     private final AuditLogService auditLogService;
 
     @GetMapping("/dashboard")
@@ -434,5 +444,60 @@ public class AdminApiController {
     public MessageResponse updateSettings(@RequestBody Map<String, String> updates) {
         storeConfigService.updateSettings(updates);
         return MessageResponse.of("Store settings saved");
+    }
+
+    @GetMapping("/delivery/warehouses")
+    public List<DeliveryWarehouse> listWarehouses() {
+        return deliveryEstimationService.listWarehouses();
+    }
+
+    @PostMapping("/delivery/warehouses")
+    public DeliveryWarehouse saveWarehouse(@Valid @RequestBody WarehouseRequest req) {
+        return deliveryEstimationService.saveWarehouse(null, req);
+    }
+
+    @GetMapping("/delivery/pin-rules")
+    public List<DeliveryPinRule> listPinRules() {
+        return deliveryEstimationService.listPinRules();
+    }
+
+    @PostMapping("/delivery/pin-rules")
+    public DeliveryPinRule savePinRule(@Valid @RequestBody PinRuleRequest req) {
+        return deliveryEstimationService.savePinRule(req);
+    }
+
+    @DeleteMapping("/delivery/pin-rules/{id}")
+    public MessageResponse deletePinRule(@PathVariable Long id) {
+        deliveryEstimationService.deletePinRule(id);
+        return MessageResponse.of("PIN code rule deleted");
+    }
+
+    @GetMapping("/delivery/holidays")
+    public List<DeliveryHoliday> listHolidays() {
+        return deliveryEstimationService.listHolidays();
+    }
+
+    @PostMapping("/delivery/holidays")
+    public DeliveryHoliday saveHoliday(@Valid @RequestBody HolidayRequest req) {
+        return deliveryEstimationService.saveHoliday(req);
+    }
+
+    @DeleteMapping("/delivery/holidays/{id}")
+    public MessageResponse deleteHoliday(@PathVariable Long id) {
+        deliveryEstimationService.deleteHoliday(id);
+        return MessageResponse.of("Holiday deleted");
+    }
+
+    @GetMapping("/delivery/products")
+    public List<ProductDeliveryConfigDto> listProductDeliveryConfigs() {
+        return deliveryEstimationService.listProductDeliveryConfigs();
+    }
+
+    @PutMapping("/delivery/products/{productId}")
+    public ProductDeliveryConfigDto saveProductDeliveryConfig(
+            @PathVariable Long productId,
+            @Valid @RequestBody ProductDeliveryConfigRequest req
+    ) {
+        return deliveryEstimationService.saveProductDeliveryConfig(productId, req);
     }
 }

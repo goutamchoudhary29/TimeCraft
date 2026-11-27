@@ -1,134 +1,92 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420" width="420" height="420">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" width="480" height="480" role="img" aria-label="TimeCraft Calibre TC-01 Mechanical Chronometer">
   <defs>
-    <radialGradient id="dialGrad" cx="50%" cy="45%" r="55%">
-      <stop offset="0%" stop-color="#25221E"/>
-      <stop offset="70%" stop-color="#141311"/>
-      <stop offset="100%" stop-color="#0B0A09"/>
+    <radialGradient id="dialSunburst" cx="50%" cy="42%" r="58%">
+      <stop offset="0%" stop-color="#22201D"/>
+      <stop offset="62%" stop-color="#141311"/>
+      <stop offset="100%" stop-color="#0B0B0A"/>
     </radialGradient>
-    <linearGradient id="goldRim" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#DFC28C"/>
-      <stop offset="45%" stop-color="#B08D57"/>
-      <stop offset="100%" stop-color="#7B5D30"/>
+    <linearGradient id="caseGold" x1="12%" y1="6%" x2="88%" y2="94%">
+      <stop offset="0%" stop-color="#E6CFA1"/>
+      <stop offset="35%" stop-color="#C29D5E"/>
+      <stop offset="70%" stop-color="#8F6D38"/>
+      <stop offset="100%" stop-color="#D7BC88"/>
     </linearGradient>
-    <linearGradient id="shimmer" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#F5E6C8" stop-opacity="0.22"/>
-      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    <linearGradient id="bezelInner" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8A6936"/>
+      <stop offset="50%" stop-color="#E5CEA0"/>
+      <stop offset="100%" stop-color="#6E5228"/>
     </linearGradient>
-    <clipPath id="dialClip">
-      <circle cx="210" cy="210" r="152"/>
-    </clipPath>
   </defs>
 
-  <!-- Subtle outer aura pulse -->
-  <circle cx="210" cy="210" r="190" fill="none" stroke="#B08D57" stroke-opacity="0.22" stroke-width="1">
-    <animate attributeName="r" values="184;196;184" dur="4.5s" repeatCount="indefinite"/>
-    <animate attributeName="stroke-opacity" values="0.12;0.32;0.12" dur="4.5s" repeatCount="indefinite"/>
-  </circle>
+  <!-- Sculpted Lugs -->
+  <path d="M166 34 L190 34 L198 84 L160 94 Z" fill="url(#caseGold)"/>
+  <path d="M314 34 L290 34 L282 84 L320 94 Z" fill="url(#caseGold)"/>
+  <path d="M166 446 L190 446 L198 396 L160 386 Z" fill="url(#caseGold)"/>
+  <path d="M314 446 L290 446 L282 396 L320 386 Z" fill="url(#caseGold)"/>
 
-  <!-- Watch Lugs -->
-  <path d="M148 36 L166 36 L176 74 L144 82 Z" fill="url(#goldRim)"/>
-  <path d="M272 36 L254 36 L244 74 L276 82 Z" fill="url(#goldRim)"/>
-  <path d="M148 384 L166 384 L176 346 L144 338 Z" fill="url(#goldRim)"/>
-  <path d="M272 384 L254 384 L244 346 L276 338 Z" fill="url(#goldRim)"/>
+  <!-- Fluted Winding Crown -->
+  <rect x="424" y="220" width="16" height="40" rx="3" fill="url(#caseGold)"/>
+  <line x1="428" y1="224" x2="428" y2="256" stroke="#5E4521" stroke-width="1.2"/>
+  <line x1="432" y1="224" x2="432" y2="256" stroke="#5E4521" stroke-width="1.2"/>
+  <line x1="436" y1="224" x2="436" y2="256" stroke="#5E4521" stroke-width="1.2"/>
 
-  <!-- Crown -->
-  <rect x="372" y="194" width="16" height="32" rx="4" fill="url(#goldRim)"/>
-  <line x1="376" y1="198" x2="376" y2="222" stroke="#5A4322" stroke-width="1.5"/>
-  <line x1="382" y1="198" x2="382" y2="222" stroke="#5A4322" stroke-width="1.5"/>
+  <!-- Stepped 18K Gold Case & Rehaut -->
+  <circle cx="240" cy="240" r="186" fill="url(#caseGold)"/>
+  <circle cx="240" cy="240" r="176" fill="#151412" stroke="url(#bezelInner)" stroke-width="1.5"/>
+  <circle cx="240" cy="240" r="170" fill="url(#dialSunburst)"/>
+  <circle cx="240" cy="240" r="160" fill="none" stroke="#C29D5E" stroke-opacity="0.28" stroke-width="0.75"/>
+  <circle cx="240" cy="240" r="122" fill="none" stroke="#C29D5E" stroke-opacity="0.16" stroke-width="0.6"/>
 
-  <!-- Case & Bezel -->
-  <circle cx="210" cy="210" r="168" fill="url(#goldRim)"/>
-  <circle cx="210" cy="210" r="158" fill="#181614" stroke="#DFC28C" stroke-width="1.2"/>
-  <circle cx="210" cy="210" r="152" fill="url(#dialGrad)"/>
-
-  <!-- Open-Heart Animated Mechanical Gears -->
-  <g clip-path="url(#dialClip)">
-    <!-- Large main gear -->
-    <g transform="translate(210 264)">
-      <g>
-        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="14s" repeatCount="indefinite"/>
-        <circle r="36" fill="none" stroke="#B08D57" stroke-width="2.5" stroke-dasharray="6 4"/>
-        <circle r="24" fill="none" stroke="#DFC28C" stroke-width="1.2"/>
-        <line x1="-24" y1="0" x2="24" y2="0" stroke="#B08D57" stroke-width="1.6"/>
-        <line x1="0" y1="-24" x2="0" y2="24" stroke="#B08D57" stroke-width="1.6"/>
-        <circle r="6" fill="#C94A4A" stroke="#DFC28C" stroke-width="1.5"/>
-      </g>
-    </g>
-
-    <!-- Counter-rotating escapement wheel -->
-    <g transform="translate(160 248)">
-      <g>
-        <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="8s" repeatCount="indefinite"/>
-        <circle r="20" fill="none" stroke="#9A7B4F" stroke-width="2" stroke-dasharray="4 3"/>
-        <line x1="-16" y1="0" x2="16" y2="0" stroke="#9A7B4F" stroke-width="1.2"/>
-        <line x1="0" y1="-16" x2="0" y2="16" stroke="#9A7B4F" stroke-width="1.2"/>
-        <circle r="3.5" fill="#DFC28C"/>
-      </g>
-    </g>
-
-    <!-- Oscillating Balance Wheel -->
-    <g transform="translate(260 248)">
-      <g>
-        <animateTransform attributeName="transform" type="rotate" values="-38;38;-38" dur="1.2s" repeatCount="indefinite"/>
-        <circle r="18" fill="none" stroke="#DFC28C" stroke-width="1.8"/>
-        <line x1="-18" y1="0" x2="18" y2="0" stroke="#DFC28C" stroke-width="1.4"/>
-        <circle r="4" fill="#C94A4A"/>
-      </g>
-    </g>
-
-    <!-- Subtle sapphire crystal light sweep -->
-    <rect x="-260" y="0" width="160" height="420" fill="url(#shimmer)" transform="rotate(24 210 210)">
-      <animate attributeName="x" values="-220;520;520" dur="5.5s" repeatCount="indefinite"/>
-    </rect>
-  </g>
-
-  <!-- Hour Indices -->
-  <g stroke="#DFC28C" stroke-linecap="round">
-    <line x1="210" y1="68" x2="210" y2="86" stroke-width="3.2"/>
-    <line x1="210" y1="334" x2="210" y2="352" stroke-width="2.6"/>
-    <line x1="68" y1="210" x2="86" y2="210" stroke-width="2.6"/>
-    <line x1="334" y1="210" x2="352" y2="210" stroke-width="2.6"/>
-    <line x1="281" y1="87" x2="274" y2="99" stroke-width="1.8"/>
-    <line x1="333" y1="139" x2="321" y2="146" stroke-width="1.8"/>
-    <line x1="333" y1="281" x2="321" y2="274" stroke-width="1.8"/>
-    <line x1="281" y1="333" x2="274" y2="321" stroke-width="1.8"/>
-    <line x1="139" y1="333" x2="146" y2="321" stroke-width="1.8"/>
-    <line x1="87" y1="281" x2="99" y2="274" stroke-width="1.8"/>
-    <line x1="87" y1="139" x2="99" y2="146" stroke-width="1.8"/>
-    <line x1="139" y1="87" x2="146" y2="99" stroke-width="1.8"/>
-  </g>
-
-  <!-- Brand Wordmark -->
-  <text x="210" y="136" text-anchor="middle" fill="#FAF9F6" font-family="Georgia, serif" font-size="16" letter-spacing="5">TIMECRAFT</text>
-  <text x="210" y="152" text-anchor="middle" fill="#B08D57" font-family="sans-serif" font-size="8.5" letter-spacing="3">GENEVE · INDIA</text>
-
-  <!-- Animated Hour Hand -->
-  <g transform="translate(210 210)">
-    <g>
-      <animateTransform attributeName="transform" type="rotate" from="305" to="665" dur="43200s" repeatCount="indefinite"/>
-      <polygon points="-4,16 4,16 2,-76 -2,-76" fill="#FAF9F6"/>
+  <!-- Applied Gold Baton Indices -->
+  <g stroke="#E2C997" stroke-linecap="butt">
+    <line x1="236.5" y1="84" x2="236.5" y2="108" stroke-width="2.6"/>
+    <line x1="243.5" y1="84" x2="243.5" y2="108" stroke-width="2.6"/>
+    <line x1="240" y1="372" x2="240" y2="396" stroke-width="2.6"/>
+    <line x1="84" y1="240" x2="108" y2="240" stroke-width="2.6"/>
+    <line x1="372" y1="240" x2="396" y2="240" stroke-width="2.6"/>
+    <g transform="translate(240 240)">
+      <line x1="0" y1="-156" x2="0" y2="-136" stroke-width="2" transform="rotate(30)"/>
+      <line x1="0" y1="-156" x2="0" y2="-136" stroke-width="2" transform="rotate(60)"/>
+      <line x1="0" y1="-156" x2="0" y2="-136" stroke-width="2" transform="rotate(120)"/>
+      <line x1="0" y1="-156" x2="0" y2="-136" stroke-width="2" transform="rotate(150)"/>
+      <line x1="0" y1="-156" x2="0" y2="-136" stroke-width="2" transform="rotate(210)"/>
+      <line x1="0" y1="-156" x2="0" y2="-136" stroke-width="2" transform="rotate(240)"/>
+      <line x1="0" y1="-156" x2="0" y2="-136" stroke-width="2" transform="rotate(300)"/>
+      <line x1="0" y1="-156" x2="0" y2="-136" stroke-width="2" transform="rotate(330)"/>
     </g>
   </g>
 
-  <!-- Animated Minute Hand -->
-  <g transform="translate(210 210)">
-    <g>
-      <animateTransform attributeName="transform" type="rotate" from="52" to="412" dur="3600s" repeatCount="indefinite"/>
-      <polygon points="-3,20 3,20 1.4,-114 -1.4,-114" fill="#FAF9F6"/>
-    </g>
+  <!-- Dial Signature -->
+  <text x="240" y="154" text-anchor="middle" fill="#F8F6F1" font-family="Georgia, 'Times New Roman', serif" font-size="16" letter-spacing="5.5">TIMECRAFT</text>
+  <text x="240" y="170" text-anchor="middle" fill="#C29D5E" font-family="sans-serif" font-size="8" letter-spacing="3.2">CHRONOMETRE · AUTOMATIC</text>
+
+  <!-- Open Balance Aperture at 6 o'clock -->
+  <g transform="translate(240 322)">
+    <circle r="34" fill="#0B0A09" stroke="#C29D5E" stroke-opacity="0.55" stroke-width="1.1"/>
+    <circle r="24" fill="none" stroke="#C29D5E" stroke-opacity="0.45" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <line x1="-34" y1="0" x2="34" y2="0" stroke="#C29D5E" stroke-width="1.2"/>
+    <circle r="4.5" fill="#9E3342" stroke="#E2C997" stroke-width="1"/>
   </g>
 
-  <!-- Smooth Sweeping Gold Second Hand -->
-  <g transform="translate(210 210)">
-    <g>
-      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="60s" repeatCount="indefinite"/>
-      <line x1="0" y1="28" x2="0" y2="-130" stroke="#DFC28C" stroke-width="1.8"/>
-      <circle cx="0" cy="-100" r="3" fill="#B08D57"/>
+  <!-- Conventional Balanced 10:10:31 Studio Pose (Exact 240,240 Origin) -->
+  <g transform="translate(240 240)">
+    <!-- Hour Hand: 10:10 -> 305 deg -->
+    <g transform="rotate(305)">
+      <polygon points="-4.8,18 4.8,18 2.1,-94 0,-102 -2.1,-94" fill="#F8F6F1"/>
+      <line x1="0" y1="12" x2="0" y2="-88" stroke="#C29D5E" stroke-width="0.9"/>
     </g>
+    <!-- Minute Hand: 10 min -> 60 deg -->
+    <g transform="rotate(60)">
+      <polygon points="-3.6,22 3.6,22 1.5,-138 0,-146 -1.5,-138" fill="#F8F6F1"/>
+      <line x1="0" y1="14" x2="0" y2="-130" stroke="#C29D5E" stroke-width="0.8"/>
+    </g>
+    <!-- Second Hand: 31 sec -> 186 deg -->
+    <g transform="rotate(186)">
+      <line x1="0" y1="34" x2="0" y2="-150" stroke="#D9BA82" stroke-width="1.3"/>
+      <circle cx="0" cy="22" r="3.2" fill="#141414" stroke="#D9BA82" stroke-width="1.2"/>
+    </g>
+    <!-- Center Cap -->
+    <circle r="6.5" fill="url(#caseGold)"/>
+    <circle r="2.2" fill="#141414"/>
   </g>
-
-  <!-- Center Pinion -->
-  <circle cx="210" cy="210" r="6.5" fill="url(#goldRim)"/>
-  <circle cx="210" cy="210" r="2.5" fill="#141311"/>
 </svg>

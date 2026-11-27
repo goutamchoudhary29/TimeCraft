@@ -141,6 +141,13 @@ timecraft:
   security:
     google:
       client-id: ${GOOGLE_CLIENT_ID:}
+  checkout:
+    max-cod-amount: ${MAX_COD_AMOUNT:500000}
+  payment:
+    payu:
+      merchant-key: ${PAYU_MERCHANT_KEY:otqqIX}
+      merchant-salt: ${PAYU_MERCHANT_SALT:Vx6TKHBnxErLEvbrTmLZGMb4eVEAtyQM}
+      base-url: ${PAYU_BASE_URL:https://test.payu.in}
 
 management:
   endpoints:

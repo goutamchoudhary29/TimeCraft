@@ -41,9 +41,16 @@ public class CloudinaryService {
 
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
+    private volatile HttpClient httpClient;
+
+    private HttpClient httpClient() {
+        HttpClient c = this.httpClient;
+        if (c == null) {
+            c = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+            this.httpClient = c;
+        }
+        return c;
+    }
 
     public record UploadResult(String url, String publicId) {
     }
@@ -111,7 +118,7 @@ public class CloudinaryService {
                     .POST(HttpRequest.BodyPublishers.ofString(form))
                     .build();
 
-            HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> res = httpClient().send(req, HttpResponse.BodyHandlers.ofString());
             JsonNode json = objectMapper.readTree(res.body());
             if (res.statusCode() >= 300 || json.has("error")) {
                 String msg = json.path("error").path("message").asText("Cloudinary upload failed");
@@ -149,7 +156,7 @@ public class CloudinaryService {
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(HttpRequest.BodyPublishers.ofString(form))
                     .build();
-            httpClient.send(req, HttpResponse.BodyHandlers.discarding());
+            httpClient().send(req, HttpResponse.BodyHandlers.discarding());
         } catch (Exception ex) {
             log.warn("Could not delete Cloudinary asset {}: {}", publicId, ex.getMessage());
         }

@@ -12,6 +12,7 @@ import com.timecraft.authentication.repository.UserRepository;
 import com.timecraft.common.dto.PageResponse;
 import com.timecraft.common.util.Money;
 import com.timecraft.common.util.ReferenceNumberGenerator;
+import com.timecraft.config.CheckoutProperties;
 import com.timecraft.exception.ResourceNotFoundException;
 import com.timecraft.security.SecurityUtils;
 import com.timecraft.security.TimeCraftPrincipal;
@@ -38,6 +39,7 @@ public class StoreConfigService {
     private final NewsletterSubscriberRepository newsletterRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
+    private final CheckoutProperties checkoutProperties;
 
     public record ContactTicketRequest(
             @NotBlank @Size(max = 120) String name,
@@ -105,11 +107,19 @@ public class StoreConfigService {
     }
 
     @Transactional(readOnly = true)
+    public BigDecimal getMaxCodAmount() {
+        return checkoutProperties.effectiveMaxCodAmount();
+    }
+
+    @Transactional(readOnly = true)
     public Map<String, String> getPublicStorefrontConfig() {
         Map<String, String> map = new LinkedHashMap<>();
         for (StoreSetting s : storeSettingRepository.findAllByOrderBySettingGroupAscSettingKeyAsc()) {
             map.put(s.getSettingKey(), s.getSettingValue());
         }
+        BigDecimal maxCod = getMaxCodAmount();
+        map.put("cod_max_amount", maxCod.toPlainString());
+        map.put("max_cod_amount", maxCod.toPlainString());
         return map;
     }
 

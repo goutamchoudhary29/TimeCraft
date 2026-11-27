@@ -3,133 +3,556 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopping Bag · TimeCraft</title>
+    <title>Shopping Bag · TimeCraft Fine Horology</title>
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/styles.css" rel="stylesheet">
 </head>
 <body>
 <div id="tcHeader"></div>
-<main class="container py-5">
-    <div class="border-bottom pb-3 mb-4">
-        <div class="tc-eyebrow">Server-Verified Pricing &amp; Stock</div>
-        <h1 class="display-6 tc-serif mb-0">Your Shopping Bag</h1>
+
+<main class="container tc-bag-page">
+    <!-- Luxury Shopping Bag Header -->
+    <div class="tc-bag-header">
+        <div>
+            <div class="tc-eyebrow mb-1">Insured Vault Selection</div>
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <h1 class="tc-section-heading mb-0">Your Shopping Bag</h1>
+                <span class="tc-bag-count-pill tc-num" id="bagHeaderCountPill">
+                    <span data-tc-bag-count>0</span>&nbsp;<span id="bagHeaderPieceWord">Timepieces</span>
+                </span>
+            </div>
+        </div>
+        <a href="/pages/shop.html" class="tc-link-editorial">Continue Exploring Timepieces <span>&rarr;</span></a>
     </div>
-    <div id="cartHost"></div>
+
+    <!-- Loading Skeleton -->
+    <div id="bagLoadingState" class="py-5 text-center text-muted small">
+        Verifying timepiece allocations and live vault pricing…
+    </div>
+
+    <!-- Empty Bag State -->
+    <div id="bagEmptyState" class="d-none">
+        <div class="tc-bag-empty-state">
+            <div class="tc-eyebrow mb-2">Private Horological Vault</div>
+            <h2 class="tc-serif display-6 mb-2">Your Shopping Bag Is Empty</h2>
+            <p class="text-muted small mx-auto mb-4" style="max-width:460px;">
+                Explore our Swiss mechanical complications, European dress calibres, Japanese titanium GMTs, and contemporary Indian timepieces.
+            </p>
+            <div class="d-flex flex-wrap justify-content-center gap-3">
+                <a href="/pages/shop.html" class="btn-tc-primary">Explore Timepieces</a>
+                <a href="/pages/brands.html" class="btn-tc-secondary">Browse Partner Maisons</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Populated Shopping Bag Content -->
+    <div id="bagPopulatedWrap" class="d-none">
+        <!-- Complimentary Insured Vault Delivery Progress -->
+        <div id="bagShippingBanner" class="tc-bag-shipping-banner"></div>
+
+        <div class="tc-bag-layout">
+            <!-- Left Column: Horizontal Timepiece Ledger -->
+            <div>
+                <!-- PIN Code Delivery Estimator Bar -->
+                <div class="tc-bag-pin-bar">
+                    <div class="d-flex align-items-center gap-2 small">
+                        <span id="bagPinTruckIcon"></span>
+                        <div>
+                            <div class="fw-medium text-dark">Estimated Delivery by PIN Code</div>
+                            <div class="text-muted" id="bagPinSubNote" style="font-size:11.5px;">Enter your 6-digit PIN code for exact dispatch and arrival dates.</div>
+                        </div>
+                    </div>
+                    <form id="bagPinForm" class="d-flex gap-2 align-items-center" novalidate>
+                        <input type="text" id="bagPinInput" class="tc-pdp-pin-input" style="width:155px;height:36px;font-size:12.5px;"
+                               maxlength="6" inputmode="numeric" placeholder="PIN (e.g. 560001)">
+                        <button type="submit" id="bagPinBtn" class="tc-pdp-pin-btn" style="height:36px;padding:0 14px;">Check</button>
+                    </form>
+                </div>
+
+                <!-- Multi-Warehouse Shipment Notice -->
+                <div id="bagSplitNoticeHost"></div>
+
+                <div class="tc-bag-ledger">
+                    <div class="tc-bag-table-head">
+                        <div>Timepiece &amp; Reference</div>
+                        <div class="text-end">Unit Price</div>
+                        <div class="text-center">Quantity</div>
+                        <div class="text-end">Subtotal</div>
+                    </div>
+                    <div id="bagItemsHost"></div>
+                </div>
+            </div>
+
+            <!-- Right Column: Sticky Valuation & Settlement Summary -->
+            <aside class="tc-bag-summary" aria-label="Order Valuation Summary">
+                <div class="tc-eyebrow mb-1">Server-Verified Valuation</div>
+                <h2 class="tc-serif fs-3 mb-0">Order Summary</h2>
+
+                <!-- Privilege / Coupon Voucher -->
+                <div class="tc-bag-voucher-box">
+                    <label for="couponInput" class="form-label small text-uppercase mb-2" style="font-size:10px;letter-spacing:0.16em;color:var(--tc-muted);">
+                        Privilege / Collector Code
+                    </label>
+                    <form id="couponForm" class="d-flex gap-2">
+                        <input type="text" id="couponInput" class="form-control form-control-sm text-uppercase"
+                               placeholder="Enter code (e.g. WELCOME10)" autocomplete="off">
+                        <button type="submit" id="couponApplyBtn" class="btn-tc-secondary py-1 px-3" style="white-space:nowrap;">
+                            Apply
+                        </button>
+                    </form>
+                    <div id="bagCouponFeedback"></div>
+                </div>
+
+                <!-- Dynamic Totals Breakdown -->
+                <div id="bagTotalsBreakdown" class="tc-price"></div>
+
+                <!-- Primary Checkout Action -->
+                <div id="bagCheckoutActionWrap" class="mt-4"></div>
+
+                <!-- Maison Custody & Settlement Assurances -->
+                <ul class="tc-bag-trust-list">
+                    <li>&#10003; 100% Serial-Verified Authorised Maison Warranty</li>
+                    <li>&#10003; Regulated Across Five Positions Prior to Dispatch</li>
+                    <li>&#10003; Razorpay &middot; PayU &middot; Concierge COD up to ₹5,00,000</li>
+                    <li>&#10003; 7-Day Unworn Collector Inspection Return</li>
+                </ul>
+            </aside>
+        </div>
+    </div>
 </main>
+
 <div id="tcFooter"></div>
 <script src="/js/app.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
     await TC.mountChrome('cart');
-    const host = document.getElementById('cartHost');
 
-    async function loadCart() {
+    const loadingEl = document.getElementById('bagLoadingState');
+    const emptyEl = document.getElementById('bagEmptyState');
+    const populatedEl = document.getElementById('bagPopulatedWrap');
+    const shippingEl = document.getElementById('bagShippingBanner');
+    const itemsHost = document.getElementById('bagItemsHost');
+    const totalsHost = document.getElementById('bagTotalsBreakdown');
+    const couponFeedbackHost = document.getElementById('bagCouponFeedback');
+    const couponInput = document.getElementById('couponInput');
+    const couponForm = document.getElementById('couponForm');
+    const couponApplyBtn = document.getElementById('couponApplyBtn');
+    const checkoutWrap = document.getElementById('bagCheckoutActionWrap');
+    const pieceWordEl = document.getElementById('bagHeaderPieceWord');
+
+    const FALLBACK_WATCH_IMG = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80';
+    let couponBusy = false;
+
+    const bagPinTruckIcon = document.getElementById('bagPinTruckIcon');
+    if (bagPinTruckIcon) bagPinTruckIcon.innerHTML = TC.TRUCK_SVG;
+    const bagPinForm = document.getElementById('bagPinForm');
+    const bagPinInput = document.getElementById('bagPinInput');
+    const bagPinBtn = document.getElementById('bagPinBtn');
+    const bagPinSubNote = document.getElementById('bagPinSubNote');
+    const bagSplitNoticeHost = document.getElementById('bagSplitNoticeHost');
+
+    const deliveryOverrides = new Map();
+    let lastDeliverySummary = null;
+    let lastRenderedDetail = null;
+
+    if (bagPinInput && TC.getSavedDeliveryPin()) {
+        bagPinInput.value = TC.getSavedDeliveryPin();
+    }
+
+    async function refreshBagDeliveryEstimates(pinCode, showToastOnInvalid = false) {
+        const cleanPin = String(pinCode || '').replace(/\D/g, '').slice(0, 6);
+        if (bagPinInput && bagPinInput.value !== cleanPin) bagPinInput.value = cleanPin;
+        if (cleanPin && cleanPin.length !== 6) {
+            if (showToastOnInvalid) TC.toast('Please enter a valid 6-digit Indian PIN code', 'error');
+            return;
+        }
+        if (bagPinBtn) {
+            bagPinBtn.disabled = true;
+            bagPinBtn.textContent = 'Checking…';
+        }
         try {
-            const cart = await TC.api('/cart');
-            TC.updateHeaderBadges(cart);
-            if (!cart.items || cart.items.length === 0) {
-                host.innerHTML = `
-                <div class="tc-panel text-center py-5">
-                  <h2 class="tc-serif fs-3">Your bag is currently empty</h2>
-                  <p class="text-muted small mb-3">Explore our mechanical and quartz collections to add a timepiece.</p>
-                  <a href="/pages/shop.html" class="btn-tc-primary">Explore Watches</a>
-                </div>`;
-                return;
-            }
-            const t = cart.totals;
-            host.innerHTML = `
-            <div class="row g-4">
-              <div class="col-lg-8">
-                <div class="tc-panel vstack gap-3">
-                  ${cart.items.map(item => `
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 border-bottom pb-3">
-                      <div class="d-flex align-items-center gap-3">
-                        <img src="${TC.escapeHtml(item.imageUrl)}" alt="" style="width:68px;height:85px;object-fit:cover;border:1px solid #E5E2DC;">
-                        <div>
-                          <div class="tc-eyebrow">${TC.escapeHtml(item.brandName)}</div>
-                          <a href="/pages/product-details.html?slug=${encodeURIComponent(item.productSlug)}" class="tc-serif fs-4">${TC.escapeHtml(item.productName)}</a>
-                          <div class="small text-muted">${TC.escapeHtml(item.variantName)} · SKU ${TC.escapeHtml(item.variantSku)}</div>
-                          ${!item.available ? '<div class="small text-danger fw-semibold">Insufficient stock available</div>' : ''}
-                        </div>
-                      </div>
-                      <div class="d-flex align-items-center gap-3">
-                        <input type="number" min="1" max="5" value="${item.quantity}" class="form-control form-control-sm tc-num" style="width:72px;"
-                               onchange="window.updateQty(${item.id}, this.value)">
-                        <div class="text-end tc-price" style="min-width:110px;">
-                          <div class="fw-semibold">${TC.formatInr(item.lineSubtotal)}</div>
-                          <div class="small text-muted">${TC.formatInr(item.sellingUnitPrice)} each</div>
-                        </div>
-                        <button type="button" class="btn-tc-secondary py-1 px-2" onclick="window.removeItem(${item.id})">&times;</button>
-                      </div>
-                    </div>`).join('')}
-                </div>
-              </div>
-              <div class="col-lg-4">
-                <div class="tc-panel">
-                  <h2 class="h4 tc-serif mb-3">Order Summary</h2>
-                  <form id="couponForm" class="d-flex gap-2 mb-3">
-                    <input type="text" id="couponInput" class="form-control form-control-sm text-uppercase"
-                           placeholder="Coupon (e.g. WELCOME10)" value="${TC.escapeHtml(cart.appliedCouponCode || '')}">
-                    <button type="submit" class="btn-tc-secondary py-1 px-3">Apply</button>
-                    ${cart.appliedCouponCode ? '<button type="button" class="btn-tc-secondary py-1 px-2" onclick="window.clearCoupon()">✕</button>' : ''}
-                  </form>
-                  ${cart.couponMessage ? `<div class="small text-muted mb-2">${TC.escapeHtml(cart.couponMessage)}</div>` : ''}
-                  <div class="small vstack gap-2 border-top pt-3 tc-price">
-                    <div class="d-flex justify-content-between"><span>Subtotal</span><span>${TC.formatInr(t.subtotal)}</span></div>
-                    <div class="d-flex justify-content-between"><span>Discount</span><span>- ${TC.formatInr(t.discountTotal)}</span></div>
-                    <div class="d-flex justify-content-between">
-                      <span>${t.taxInclusive ? 'Included ' + t.taxLabel + ' (' + t.taxRatePercent + '%)' : t.taxLabel + ' (' + t.taxRatePercent + '%)'}</span>
-                      <span>${TC.formatInr(t.taxTotal)}</span>
-                    </div>
-                    <div class="d-flex justify-content-between"><span>Insured Shipping</span><span>${Number(t.shippingTotal) === 0 ? 'Complimentary' : TC.formatInr(t.shippingTotal)}</span></div>
-                    <div class="d-flex justify-content-between border-top pt-2 fs-5 fw-semibold">
-                      <span>Payable Total</span><span>${TC.formatInr(t.grandTotal)}</span>
-                    </div>
-                  </div>
-                  <a href="/pages/checkout.html" class="btn-tc-primary w-100 mt-4">Proceed to Checkout</a>
-                </div>
-              </div>
-            </div>`;
-
-            document.getElementById('couponForm').addEventListener('submit', async e => {
-                e.preventDefault();
-                const code = document.getElementById('couponInput').value;
-                try {
-                    await TC.api('/cart/coupon', { method: 'POST', body: { code } });
-                    TC.toast('Coupon applied');
-                    await loadCart();
-                } catch (err) {
-                    TC.toast(err.message, 'error');
+            const qs = cleanPin ? ('?pinCode=' + encodeURIComponent(cleanPin)) : '';
+            const summary = await TC.api('/delivery/cart-estimates' + qs);
+            lastDeliverySummary = summary;
+            deliveryOverrides.clear();
+            (summary && Array.isArray(summary.items) ? summary.items : []).forEach(it => {
+                if (it && it.cartItemId != null && it.estimate) {
+                    deliveryOverrides.set(Number(it.cartItemId), it.estimate);
                 }
             });
+            if (cleanPin) {
+                TC.setSavedDeliveryPin(cleanPin);
+                if (bagPinSubNote) bagPinSubNote.textContent = `Showing live insured delivery estimates for PIN ${cleanPin}.`;
+            }
+            if (lastRenderedDetail) {
+                renderBagView(lastRenderedDetail);
+            }
         } catch (err) {
-            host.innerHTML = `<div class="alert alert-danger rounded-0">${TC.escapeHtml(err.message)}</div>`;
+            if (showToastOnInvalid) TC.toast(err.message || 'Unable to fetch delivery estimates', 'error');
+        } finally {
+            if (bagPinBtn) {
+                bagPinBtn.disabled = false;
+                bagPinBtn.textContent = 'Check';
+            }
         }
     }
 
-    window.updateQty = async (itemId, qty) => {
-        try {
-            await TC.api('/cart/items/' + itemId, { method: 'PUT', body: { quantity: Number(qty) } });
-            await loadCart();
-        } catch (err) {
-            TC.toast(err.message, 'error');
-            await loadCart();
+    bagPinForm?.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        refreshBagDeliveryEstimates(bagPinInput ? bagPinInput.value : '', true);
+    });
+
+    function renderBagView(detail) {
+        const cart = detail && detail.cart ? detail.cart : null;
+        if (!cart) return;
+        lastRenderedDetail = detail;
+
+        const syncingSet = new Set((detail.syncingIds || []).map(Number));
+        const removingSet = new Set((detail.removingIds || []).map(Number));
+        const confirmSet = new Set((detail.confirmRemoveIds || []).map(Number));
+
+        loadingEl.classList.add('d-none');
+
+        const totalQty = Number(cart.totalQuantity || 0);
+        if (pieceWordEl) {
+            pieceWordEl.textContent = totalQty === 1 ? 'Timepiece' : 'Timepieces';
         }
-    };
-    window.removeItem = async (itemId) => {
-        try {
-            await TC.api('/cart/items/' + itemId, { method: 'DELETE' });
-            await loadCart();
-        } catch (err) {
-            TC.toast(err.message, 'error');
+
+        if (!cart.items || cart.items.length === 0) {
+            populatedEl.classList.add('d-none');
+            emptyEl.classList.remove('d-none');
+            return;
         }
-    };
-    window.clearCoupon = async () => {
-        await TC.api('/cart/coupon', { method: 'DELETE' });
-        await loadCart();
+
+        emptyEl.classList.add('d-none');
+        populatedEl.classList.remove('d-none');
+
+        const t = cart.totals || {
+            subtotal: 0,
+            discountTotal: 0,
+            discountedSubtotal: 0,
+            taxLabel: 'GST',
+            taxRatePercent: 18,
+            taxInclusive: true,
+            taxTotal: 0,
+            shippingTotal: 0,
+            freeShippingThreshold: 10000,
+            grandTotal: 0
+        };
+
+        // 1. Complimentary Insured Shipping Progress
+        const threshold = Number(t.freeShippingThreshold || 10000);
+        const discountedBase = Number(t.discountedSubtotal !== undefined ? t.discountedSubtotal : t.subtotal || 0);
+        const pct = threshold > 0 ? Math.min(100, Math.round((discountedBase / threshold) * 100)) : 100;
+        const remaining = Math.max(0, threshold - discountedBase);
+
+        shippingEl.innerHTML = `
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 small">
+                <span>
+                    ${remaining === 0 && discountedBase > 0
+                        ? '&#10003; <strong>Complimentary Insured Armoured Vault Delivery</strong> is unlocked for your order.'
+                        : `Add <strong class="tc-price">${TC.formatInr(remaining)}</strong> more to unlock <strong>Complimentary Insured Vault Delivery</strong>.`}
+                </span>
+                <span class="tc-eyebrow tc-num" style="color:var(--tc-muted);font-size:10px;">
+                    ${remaining === 0 && discountedBase > 0 ? 'Insured Transit Unlocked' : pct + '% of ' + TC.formatInr(threshold)}
+                </span>
+            </div>
+            <div class="tc-bag-shipping-track">
+                <div class="tc-bag-shipping-fill" style="width:${discountedBase > 0 ? pct : 0}%;"></div>
+            </div>`;
+
+        // 2. Horizontal Product Rows (Actual Backend Data + Precision [ − ] 1 [ + ] Controls)
+        let hasUnavailableItem = false;
+        const distinctWarehouses = new Set();
+
+        itemsHost.innerHTML = cart.items.map(item => {
+            const id = Number(item.id);
+            const isSyncing = syncingSet.has(id);
+            const isRemoving = removingSet.has(id);
+            const isConfirming = confirmSet.has(id);
+            const maxAllowed = TC.getItemMaxAllowed(item);
+            const atMax = Number(item.quantity) >= maxAllowed;
+            const showStrikeRegular = Number(item.regularUnitPrice || 0) > Number(item.sellingUnitPrice || 0);
+            const est = deliveryOverrides.get(id) || item.deliveryEstimate || null;
+            if (est && est.warehouseName) distinctWarehouses.add(est.warehouseName);
+
+            const deliveryHtml = est ? `
+                ${TC.renderDeliveryLine(est, { className: 'tc-bag-delivery-line', showDates: Boolean(est.pinCode) })}
+                ${est.serviceable && est.available && est.warehouseName
+                    ? `<div class="tc-bag-delivery-sub">Ships from ${TC.escapeHtml(est.warehouseName)}${est.expectedDispatchDate ? ' · Expected dispatch ' + TC.escapeHtml(TC.formatDeliveryDate(est.expectedDispatchDate)) : ''}</div>`
+                    : (est.detailMessage && (!est.serviceable || !est.available) ? `<div class="tc-bag-delivery-sub text-danger">${TC.escapeHtml(est.detailMessage)}</div>` : '')}
+            ` : '';
+
+            if (!item.available) {
+                hasUnavailableItem = true;
+            }
+
+            let stockBadgeHtml = `<div class="tc-bag-stock-note">&#10003; In Vault &middot; Serial-Verified</div>`;
+            if (!item.available) {
+                const availCount = Number(item.availableStock || 0);
+                stockBadgeHtml = `<div class="tc-bag-stock-note unavailable">
+                    ${availCount <= 0
+                        ? 'Currently Out of Vault Stock — Remove to Proceed'
+                        : `Only ${availCount} available in vault — Reduce quantity to proceed`}
+                </div>`;
+            } else if (Number(item.availableStock || 0) <= 3) {
+                stockBadgeHtml = `<div class="tc-bag-stock-note low">Limited Allocation &middot; Only ${item.availableStock} left in vault</div>`;
+            }
+
+            const modelParts = [];
+            if (item.modelName) modelParts.push('Model ' + TC.escapeHtml(item.modelName));
+            if (item.movementType) modelParts.push(TC.escapeHtml(item.movementType));
+            if (item.caseDiameterMm) modelParts.push(TC.escapeHtml(item.caseDiameterMm) + ' mm');
+
+            const unitPriceHtml = `
+                <div class="fw-medium text-dark">${TC.formatInr(item.sellingUnitPrice)}</div>
+                ${showStrikeRegular ? `<div class="small text-muted text-decoration-line-through" style="font-size:11.5px;">${TC.formatInr(item.regularUnitPrice)}</div>` : ''}`;
+
+            const stepperHtml = `
+                <div class="tc-bag-stepper-wrap">
+                    <div class="tc-bag-stepper ${isSyncing ? 'is-syncing' : ''}" role="group" aria-label="Quantity for ${TC.escapeHtml(item.productName)}">
+                        <button type="button" class="tc-bag-step-btn"
+                                aria-label="Decrease quantity of ${TC.escapeHtml(item.productName)}"
+                                ${isRemoving ? 'disabled' : ''}
+                                onclick="TC.stepCartItemQuantity(${id}, -1)">&minus;</button>
+                        <span class="tc-bag-step-val" aria-live="polite">${item.quantity}</span>
+                        <button type="button" class="tc-bag-step-btn"
+                                aria-label="Increase quantity of ${TC.escapeHtml(item.productName)}"
+                                ${isRemoving || atMax ? 'disabled' : ''}
+                                title="${atMax ? 'Maximum available quantity (' + maxAllowed + ') reached' : 'Increase quantity'}"
+                                onclick="TC.stepCartItemQuantity(${id}, 1)">+</button>
+                    </div>
+                    <div class="tc-bag-sync-status">
+                        ${isSyncing ? 'Syncing…' : (atMax && item.available ? `Max ${maxAllowed}` : '')}
+                    </div>
+                </div>`;
+
+            const subtotalHtml = `
+                <div class="fw-semibold fs-5 text-dark">${item.available ? TC.formatInr(item.lineSubtotal) : 'Unavailable'}</div>
+                ${Number(item.quantity) > 1 && item.available
+                    ? `<div class="small text-muted" style="font-size:11px;">${item.quantity} &times; ${TC.formatInr(item.sellingUnitPrice)}</div>`
+                    : ''}`;
+
+            return `
+            <article class="tc-bag-item-row ${isRemoving ? 'is-removing' : ''}" data-bag-item-id="${id}">
+                <!-- Product Portrait & Metadata -->
+                <div class="tc-bag-product-cell">
+                    <a href="/pages/product-details.html?slug=${encodeURIComponent(item.productSlug)}" class="tc-bag-thumb">
+                        <img src="${TC.escapeHtml(item.imageUrl || FALLBACK_WATCH_IMG)}"
+                             alt="${TC.escapeHtml(item.brandName + ' ' + item.productName)}"
+                             onerror="this.onerror=null;this.src='${FALLBACK_WATCH_IMG}';">
+                    </a>
+                    <div class="tc-bag-info">
+                        <div class="tc-bag-brand">${TC.escapeHtml(item.brandName)}</div>
+                        <h2 class="tc-bag-title">
+                            <a href="/pages/product-details.html?slug=${encodeURIComponent(item.productSlug)}">${TC.escapeHtml(item.productName)}</a>
+                        </h2>
+                        ${modelParts.length ? `<div class="tc-bag-model tc-num">${modelParts.join(' &middot; ')}</div>` : ''}
+                        <div class="tc-bag-variant">
+                            ${TC.escapeHtml(item.variantName)} &middot; SKU <span class="tc-num">${TC.escapeHtml(item.variantSku)}</span>
+                        </div>
+                        ${stockBadgeHtml}
+                        ${deliveryHtml}
+
+                        <div>
+                            ${isConfirming ? `
+                            <div class="tc-bag-remove-confirm" role="region" aria-label="Confirm timepiece removal">
+                                <span>Remove this timepiece from your bag?</span>
+                                <button type="button" class="tc-bag-confirm-btn" onclick="TC.removeCartItem(${id})">Remove</button>
+                                <button type="button" class="tc-bag-cancel-btn" onclick="TC.cancelRemoveConfirmation(${id})">Keep</button>
+                            </div>` : `
+                            <button type="button" class="tc-bag-remove-link"
+                                    ${isRemoving ? 'disabled' : ''}
+                                    onclick="TC.removeCartItem(${id})">
+                                <span>&times;</span> <span>${isRemoving ? 'Removing…' : 'Remove'}</span>
+                            </button>`}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desktop Columns -->
+                <div class="tc-bag-unit-cell tc-price d-none d-md-block">
+                    ${unitPriceHtml}
+                </div>
+                <div class="d-none d-md-flex justify-content-center">
+                    ${stepperHtml}
+                </div>
+                <div class="tc-bag-subtotal-cell tc-price d-none d-md-block">
+                    ${subtotalHtml}
+                </div>
+
+                <!-- Mobile Metrics Row (< 768px) -->
+                <div class="tc-bag-mobile-metrics d-md-none">
+                    <div>
+                        <div class="tc-eyebrow" style="color:var(--tc-muted);font-size:9px;">Unit Price</div>
+                        <div class="tc-price small">${unitPriceHtml}</div>
+                    </div>
+                    <div>
+                        ${stepperHtml}
+                    </div>
+                    <div class="text-end">
+                        <div class="tc-eyebrow" style="color:var(--tc-muted);font-size:9px;">Subtotal</div>
+                        <div class="tc-price">${subtotalHtml}</div>
+                    </div>
+                </div>
+            </article>`;
+        }).join('');
+
+        // Multi-Warehouse Shipment Notice
+        if (bagSplitNoticeHost) {
+            const whNames = Array.from(distinctWarehouses);
+            const isSplit = whNames.length > 1 || (lastDeliverySummary && lastDeliverySummary.splitWarehouseShipment && whNames.length > 1);
+            if (isSplit) {
+                bagSplitNoticeHost.innerHTML = `
+                    <div class="tc-bag-split-notice" role="status">
+                        <div class="mt-1">${TC.TRUCK_SVG}</div>
+                        <div>
+                            <strong>Multiple Insured Shipments:</strong> Your selected timepieces are allocated across ${whNames.length} vaults (${TC.escapeHtml(whNames.join(' & '))}). Each watch will be dispatched separately with individual insured tracking and delivery dates shown below.
+                        </div>
+                    </div>`;
+            } else {
+                bagSplitNoticeHost.innerHTML = '';
+            }
+        }
+
+        // 3. Privilege / Coupon Feedback (Preserves input focus)
+        if (document.activeElement !== couponInput) {
+            couponInput.value = cart.appliedCouponCode || '';
+        }
+        if (cart.appliedCouponCode) {
+            couponFeedbackHost.innerHTML = `
+                <div class="tc-bag-applied-voucher">
+                    <span>Privilege <strong class="tc-num">${TC.escapeHtml(cart.appliedCouponCode)}</strong> active (&minus; ${TC.formatInr(t.discountTotal)})</span>
+                    <button type="button" class="tc-bag-remove-link mt-0" onclick="window.handleClearBagCoupon()">Remove</button>
+                </div>`;
+        } else if (cart.couponMessage) {
+            couponFeedbackHost.innerHTML = `<div class="small text-muted mt-2">${TC.escapeHtml(cart.couponMessage)}</div>`;
+        } else {
+            couponFeedbackHost.innerHTML = '';
+        }
+
+        // 4. Server-Verified Totals Breakdown
+        const discountVal = Number(t.discountTotal || 0);
+        const shippingVal = Number(t.shippingTotal || 0);
+        const taxLabelText = t.taxInclusive
+            ? `Included ${TC.escapeHtml(t.taxLabel || 'GST')} (${t.taxRatePercent}%)`
+            : `${TC.escapeHtml(t.taxLabel || 'GST')} (${t.taxRatePercent}%)`;
+
+        totalsHost.innerHTML = `
+            <div class="tc-bag-summary-row">
+                <span>Subtotal (${totalQty} ${totalQty === 1 ? 'Timepiece' : 'Timepieces'})</span>
+                <span class="fw-medium text-dark">${TC.formatInr(t.subtotal)}</span>
+            </div>
+            ${discountVal > 0 ? `
+            <div class="tc-bag-summary-row" style="color:var(--tc-gold);">
+                <span>Privilege Discount${cart.appliedCouponCode ? ' (' + TC.escapeHtml(cart.appliedCouponCode) + ')' : ''}</span>
+                <span class="fw-medium">&minus; ${TC.formatInr(discountVal)}</span>
+            </div>` : ''}
+            <div class="tc-bag-summary-row">
+                <span>${taxLabelText}</span>
+                <span>${TC.formatInr(t.taxTotal)}</span>
+            </div>
+            <div class="tc-bag-summary-row">
+                <span>Insured Vault Delivery</span>
+                <span class="${shippingVal === 0 ? 'fw-medium text-dark' : ''}">
+                    ${shippingVal === 0 ? 'Complimentary' : TC.formatInr(shippingVal)}
+                </span>
+            </div>
+            <div class="tc-bag-summary-total">
+                <div>
+                    <div class="text-uppercase fw-semibold" style="font-size:11px;letter-spacing:0.16em;">Payable Amount</div>
+                    <div class="small text-muted" style="font-size:11px;">Inclusive of all duties &amp; insured transit</div>
+                </div>
+                <div class="tc-serif fs-2 fw-semibold text-dark">${TC.formatInr(t.grandTotal)}</div>
+            </div>`;
+
+        // 5. Checkout CTA (Respects stock availability)
+        if (hasUnavailableItem || totalQty <= 0) {
+            checkoutWrap.innerHTML = `
+                <button type="button" class="btn-tc-primary w-100" disabled>
+                    Adjust Unavailable Items to Proceed
+                </button>
+                <div class="small text-danger mt-2 text-center" style="font-size:11.5px;">
+                    One or more references exceed available vault stock. Please adjust quantity or remove the item above.
+                </div>`;
+        } else {
+            checkoutWrap.innerHTML = `
+                <a href="/pages/checkout.html" class="btn-tc-primary w-100 py-3">
+                    Proceed to Insured Checkout &rarr;
+                </a>`;
+        }
+    }
+
+    // Subscribe to real-time cart state updates (optimistic steppers, drawer, cross-tab)
+    window.addEventListener('tc:cart-updated', (ev) => {
+        if (ev && ev.detail) {
+            renderBagView(ev.detail);
+        }
+    });
+
+    // Coupon Apply & Clear Handlers (Deduplicated)
+    couponForm.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (couponBusy) return;
+        const code = (couponInput.value || '').trim();
+        if (!code) {
+            TC.toast('Please enter a privilege or coupon code', 'error');
+            return;
+        }
+        couponBusy = true;
+        couponApplyBtn.disabled = true;
+        couponApplyBtn.textContent = 'Verifying…';
+        try {
+            await TC.api('/cart/coupon', { method: 'POST', body: { code } });
+            TC.toast('Privilege code ' + code.toUpperCase() + ' applied');
+        } catch (err) {
+            TC.toast(err.message || 'Invalid coupon code', 'error');
+        } finally {
+            couponBusy = false;
+            couponApplyBtn.disabled = false;
+            couponApplyBtn.textContent = 'Apply';
+        }
+    });
+
+    window.handleClearBagCoupon = async () => {
+        if (couponBusy) return;
+        couponBusy = true;
+        try {
+            await TC.api('/cart/coupon', { method: 'DELETE' });
+            couponInput.value = '';
+            TC.toast('Privilege code removed');
+        } catch (err) {
+            TC.toast(err.message || 'Unable to remove coupon', 'error');
+        } finally {
+            couponBusy = false;
+        }
     };
 
-    await loadCart();
+    // Initial authoritative load from backend
+    try {
+        const initialCart = await TC.getCartState(true);
+        renderBagView({
+            cart: initialCart,
+            syncingIds: [],
+            removingIds: [],
+            confirmRemoveIds: []
+        });
+        if (initialCart && initialCart.items && initialCart.items.length > 0 && TC.getSavedDeliveryPin()) {
+            refreshBagDeliveryEstimates(TC.getSavedDeliveryPin(), false);
+        }
+    } catch (err) {
+        loadingEl.classList.add('d-none');
+        populatedEl.classList.add('d-none');
+        emptyEl.classList.remove('d-none');
+        emptyEl.innerHTML = `
+            <div class="tc-bag-empty-state">
+                <div class="tc-eyebrow mb-2 text-danger">Vault Connection Error</div>
+                <h2 class="tc-serif fs-2 mb-2">Unable to Load Shopping Bag</h2>
+                <p class="small text-muted mb-3">${TC.escapeHtml(err.message || 'Please check your connection and try again.')}</p>
+                <button type="button" class="btn-tc-primary" onclick="window.location.reload()">Retry</button>
+            </div>`;
+    }
 });
 </script>
 </body>

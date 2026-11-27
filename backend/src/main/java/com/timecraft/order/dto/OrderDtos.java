@@ -1,11 +1,15 @@
 package com.timecraft.order.dto;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.timecraft.order.entity.Order;
 import com.timecraft.order.entity.OrderItem;
 import com.timecraft.order.entity.OrderStatus;
 import com.timecraft.order.entity.OrderStatusHistory;
 import com.timecraft.order.entity.PaymentMethod;
 import com.timecraft.order.entity.PaymentStatus;
+import com.timecraft.product.entity.Product;
+import com.timecraft.product.entity.ProductVariant;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -19,34 +23,52 @@ public final class OrderDtos {
     }
 
     public record PlaceOrderRequest(
-            @NotNull Long addressId,
-            @Size(max = 40) String couponCode,
-            @Size(max = 500) String customerNote,
-            @Size(max = 64) String idempotencyKey,
-            PaymentMethod paymentMethod
+            @JsonProperty("addressId") @NotNull Long addressId,
+            @JsonProperty("couponCode") @Size(max = 40) String couponCode,
+            @JsonProperty("customerNote") @Size(max = 500) String customerNote,
+            @JsonProperty("idempotencyKey") @Size(max = 64) String idempotencyKey,
+            @JsonProperty("paymentMethod") PaymentMethod paymentMethod
     ) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public PlaceOrderRequest {
+        }
+
         public PlaceOrderRequest(Long addressId, String couponCode, String customerNote, String idempotencyKey) {
             this(addressId, couponCode, customerNote, idempotencyKey, PaymentMethod.RAZORPAY);
         }
     }
 
-    public record CancelOrderRequest(@Size(max = 255) String reason) {
+    public record CancelOrderRequest(@JsonProperty("reason") @Size(max = 255) String reason) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public CancelOrderRequest {
+        }
     }
 
     public record UpdateOrderStatusRequest(
-            @NotNull OrderStatus status,
-            @Size(max = 500) String note
+            @JsonProperty("status") @NotNull OrderStatus status,
+            @JsonProperty("note") @Size(max = 500) String note
     ) {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public UpdateOrderStatusRequest {
+        }
     }
 
     public record OrderLineDto(
             Long id,
             Long productId,
             Long variantId,
+            String productSlug,
             String productName,
             String brandName,
+            String modelName,
             String sku,
             String variantName,
+            String dialColor,
+            String strapMaterial,
+            String strapColor,
+            String movementType,
+            BigDecimal caseDiameterMm,
+            String caseMaterial,
             String imageUrl,
             BigDecimal unitPrice,
             int quantity,
@@ -59,15 +81,67 @@ public final class OrderDtos {
             int returnableQuantity
     ) {
         public static OrderLineDto from(OrderItem oi) {
+            Long productId = null;
+            Long variantId = null;
+            String productSlug = null;
+            String modelName = null;
+            String dialColor = null;
+            String strapMaterial = null;
+            String strapColor = null;
+            String movementType = null;
+            BigDecimal caseDiameterMm = null;
+            String caseMaterial = null;
+            String resolvedImage = oi.getImageUrl();
+
+            try {
+                Product p = oi.getProduct();
+                ProductVariant v = oi.getVariant();
+                if (p != null) {
+                    productId = p.getId();
+                    productSlug = p.getSlug();
+                    modelName = p.getModelName();
+                    dialColor = p.getDialColor();
+                    strapMaterial = p.getStrapMaterial();
+                    movementType = p.getMovementType() != null ? p.getMovementType().name() : null;
+                    caseDiameterMm = p.getCaseDiameterMm();
+                    caseMaterial = p.getCaseMaterial();
+                    if (resolvedImage == null || resolvedImage.isBlank()) {
+                        resolvedImage = p.getPrimaryImageUrl();
+                    }
+                }
+                if (v != null) {
+                    variantId = v.getId();
+                    if (v.getDialColor() != null && !v.getDialColor().isBlank()) {
+                        dialColor = v.getDialColor();
+                    }
+                    if (v.getStrapMaterial() != null && !v.getStrapMaterial().isBlank()) {
+                        strapMaterial = v.getStrapMaterial();
+                    }
+                    if (v.getStrapColor() != null && !v.getStrapColor().isBlank()) {
+                        strapColor = v.getStrapColor();
+                    }
+                }
+            } catch (Exception ignored) {
+                // Historical order snapshot remains intact even if linked catalog entities are unavailable
+            }
+
             return new OrderLineDto(
                     oi.getId(),
-                    oi.getProduct() != null ? oi.getProduct().getId() : null,
-                    oi.getVariant() != null ? oi.getVariant().getId() : null,
+                    productId,
+                    variantId,
+                    productSlug,
                     oi.getProductName(),
                     oi.getBrandName(),
+                    modelName,
                     oi.getSku(),
                     oi.getVariantName(),
-                    oi.getImageUrl(),
+                    dialColor,
+                    strapMaterial,
+                    strapColor,
+                    movementType,
+                    caseDiameterMm,
+                    caseMaterial,
+                    resolvedImage,
                     oi.getUnitPrice(),
                     oi.getQuantity(),
                     oi.getLineSubtotal(),
